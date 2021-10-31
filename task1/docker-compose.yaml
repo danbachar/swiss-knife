@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  db:
+  a-team_db:
     image: mysql:5.7
     volumes:
       - ./data/mysql:/var/lib/mysql
@@ -10,23 +10,23 @@ services:
       MYSQL_USER: wordpress
       MYSQL_PASSWORD: wordpress
     restart: always
-  wordpress:
+  a-team_wordpress:
     image: wordpress:php7.3-fpm-alpine
     volumes:
       - ./data/html:/var/www/html
     depends_on:
-      - db
+      - a-team_db
     environment:
-      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_HOST: a-team_db:3306
       WORDPRESS_DB_USER: wordpress
       WORDPRESS_DB_PASSWORD: wordpress
       WORDPRESS_DB_NAME: wordpress
       MYSQL_ROOT_PASSWORD: somewordpress
       WORDPRESS_TABLE_PREFIX: wp_
     links:
-      - db
+      - a-team_db
     restart: always
-  nginx:
+  a-team_nginx:
     image: nginx:alpine
     volumes:
       - ./nginx:/etc/nginx/conf.d
@@ -34,4 +34,4 @@ services:
     ports:
       - 8080:80
     links:
-      - wordpress
+      - a-team_wordpress
