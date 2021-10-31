@@ -24,7 +24,7 @@ services:
       MYSQL_ROOT_PASSWORD: somewordpress
       WORDPRESS_TABLE_PREFIX: wp_
     links:
-      - mysql
+      - db
     restart: always
   nginx:
     image: nginx:alpine
