@@ -14,7 +14,7 @@ services:
     image: wordpress:php7.3-fpm-alpine
     volumes:
       - ./data/html:/var/www/html
-      - ./php-fpm-config:/usr/local/etc/
+      - ./php-fpm-config:/usr/local/etc/php-fpm.d/
     depends_on:
       - a-team_db
     environment:
