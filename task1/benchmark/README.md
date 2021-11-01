@@ -3,7 +3,7 @@
 ## Retrieve the front page
 Call:
 ```
-httperf --server ryan.dse.in.tum.de --port 8080 --num-conns 1000 --num-calls=1 --uri / --method GET
+httperf --server ryan.dse.in.tum.de --port 8080 --num-conns 1000 --num-calls=1 --uri / --method GET --server-name ryan.dse.in.tum.de:8080
 ```
 Result:
 ```
@@ -37,11 +37,11 @@ This benchmark uses the data from `bench2_content` file to create a summy page i
 
 Call:
 ```
-httperf --server ryan.dse.in.tum.de --port 8080 --wsesslog=1000,1,bench2_content --add-header="Content-Type: application/json\nAuthorization: Basic bmVmZWRvdmc6UHhGd2QjcjQoQmJLS29ZTWFwRHEpISlP\n"
+httperf --server ryan.dse.in.tum.de --port 8080 --wsesslog=1000,1,bench2_content --add-header="Content-Type: application/json\nAuthorization: Basic YmVuY2g6YmVuY2g\n"
 ```
 Result: 
 ```
-httperf --client=0/1 --server=ryan.dse.in.tum.de --port=8080 --uri=/ --send-buffer=4096 --recv-buffer=16384 --ssl-protocol=auto --add-header='Content-Type: application/json\nAuthorization: Basic bmVmZWRvdmc6UHhGd2QjcjQoQmJLS29ZTWFwRHEpISlP\n' --wsesslog=1000,1.000,bench2_content
+httperf --client=0/1 --server=ryan.dse.in.tum.de --port=8080 --uri=/ --send-buffer=4096 --recv-buffer=16384 --ssl-protocol=auto --add-header='Content-Type: application/json\nAuthorization: Basic YmVuY2g6YmVuY2g\n' --wsesslog=1000,1.000,bench2_content
 Maximum connect burst length: 1
 
 Total: connections 1000 requests 1000 replies 1000 test-duration 189.977 s
