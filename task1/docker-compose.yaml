@@ -1,6 +1,7 @@
 version: "3.9"
 services:
   a-team_db:
+    # image: mysql:10.6
     image: mysql:5.7
     volumes:
       - ./data/mysql:/var/lib/mysql
@@ -14,7 +15,6 @@ services:
     image: wordpress:php7.3-fpm-alpine
     volumes:
       - ./data/html:/var/www/html
-      - ./php-fpm-config:/usr/local/etc/php-fpm.d/
     depends_on:
       - a-team_db
     environment:
@@ -24,6 +24,9 @@ services:
       WORDPRESS_DB_NAME: wordpress
       MYSQL_ROOT_PASSWORD: somewordpress
       WORDPRESS_TABLE_PREFIX: wp_
+    volumes:
+        - ./www.conf:/usr/local/etc/php-fpm.d/www.conf
+        # - ./www.conf:/tmp/www.conf
     links:
       - a-team_db
     restart: always
@@ -36,3 +39,5 @@ services:
       - 8080:80
     links:
       - a-team_wordpress
+# volumes:
+#   wwwConf: {}
