@@ -1,5 +1,7 @@
 # Setup #
 
+`docker-compose up -d`
+
 In the `mysql` container:
 1. `sudo userdel mysql`
 2. `sudo useradd -u 999 mysql`
@@ -15,3 +17,6 @@ In the `wordpress` container:
 On your host machine:
 1. `mkdir -p ./data/html`
 2. `sudo chown -R www-data:www-data /data/html`
+
+Import posts: 
+Tools -> Import -> Wordpress (Install Now) Wordpress -> Import
