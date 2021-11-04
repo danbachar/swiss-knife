@@ -43,11 +43,11 @@ Please activate the plugin `miniOrange API Authentication plugin` and configure 
 
 Call:
 ```
-httperf --server ryan.dse.in.tum.de --port 8080 --wsesslog=1000,1,bench2_content --add-header="Content-Type: application/json\nAuthorization: Basic YmVuY2g6YmVuY2g\n"
+httperf --server ryan.dse.in.tum.de --port 8080 --wsesslog=1000,1,bench2_content --add-header="Content-Type: application/json\nAuthorization: Basic ZGJhY2hhcjpZKkZlWXFyWXBuWEZRa2ZHNDN6TTY0MzRvaVchendxUQ\n"
 ```
 Result: 
 ```
-httperf --client=0/1 --server=ryan.dse.in.tum.de --port=8080 --uri=/ --send-buffer=4096 --recv-buffer=16384 --ssl-protocol=auto --add-header='Content-Type: application/json\nAuthorization: Basic YmVuY2g6YmVuY2g\n' --wsesslog=1000,1.000,bench2_content
+httperf --client=0/1 --server=ryan.dse.in.tum.de --port=8080 --uri=/ --send-buffer=4096 --recv-buffer=16384 --ssl-protocol=auto --add-header='Content-Type: application/json\nAuthorization: Basic ZGJhY2hhcjpZKkZlWXFyWXBuWEZRa2ZHNDN6TTY0MzRvaVchendxUQ\n' --wsesslog=1000,1.000,bench2_content
 Maximum connect burst length: 1
 
 Total: connections 1000 requests 1000 replies 1000 test-duration 189.977 s
