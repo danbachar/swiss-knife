@@ -139,6 +139,7 @@ Using \texttt{httperf} we retrieved the front page \texttt{http://ryan.dse.in.tu
 
 \subsection{Create a page using the Rest API}
 
+Please install and activate the `miniOrange API Authentication plugin` in wordpress to reproduce this part. \\
 Also with \texttt{httperf} we sent 1000 POST requests to \texttt{http://ryan.dse.in.tum.de:8080/wp-json/wp/v2/pages} with the contents from \href{https://github.com/danbachar/swiss-knife/blob/master/task1/benchmark/bench2_content}{this file} to create a new blog page. The content size is about 6kB.\\
 The throughput was \texttt{5.3 req/s} or \texttt{190.0 ms/req} with request size \texttt{6968 B}, about 50 times less then the simple GET request.
 
