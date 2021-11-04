@@ -39,7 +39,7 @@ With the `httperf-plot` script described in [optimization.md](./optimization.md)
 ## Post a page to the blog
 This benchmark uses the data from the `bench2_content` file to create a dummy page in the blog. It is executed 1000 times and uses Basic Auth for authentication.
 
-Please activate the plugin `miniOrange API Authentication plugin` and configure `Basic Auth`. Then you can you the following command to reproduce the test.
+Please install and activate the plugin `miniOrange API Authentication plugin` and configure `Basic Auth`. Then you can execute the following command to reproduce the test.
 
 Call:
 ```
