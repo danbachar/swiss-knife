@@ -41,9 +41,11 @@ This benchmark uses the data from the `bench2_content` file to create a dummy pa
 
 Please install and activate the plugin `miniOrange API Authentication plugin` and configure `Basic Auth`. Then you can execute the following command to reproduce the test.
 
+Note: you need to generate the credential by yourself with `<base64_encode(username:password)>`
+
 Call:
 ```
-httperf --server ryan.dse.in.tum.de --port 8080 --wsesslog=1000,1,bench2_content --add-header="Content-Type: application/json\nAuthorization: Basic ZGJhY2hhcjpZKkZlWXFyWXBuWEZRa2ZHNDN6TTY0MzRvaVchendxUQ\n"
+httperf --server ryan.dse.in.tum.de --port 8080 --wsesslog=1000,1,bench2_content --add-header="Content-Type: application/json\nAuthorization: Basic <base64_encode(username:password)>\n"
 ```
 Result: 
 ```
