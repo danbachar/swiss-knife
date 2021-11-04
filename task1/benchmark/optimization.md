@@ -1,7 +1,7 @@
 # Profiling and Optimization
 ## Analyse the bottleneck
 
-We need to find out the bootleneck of the system.
+We need to investigate the possible system bottlenecks.
 
 First, see how many resources are there
     
