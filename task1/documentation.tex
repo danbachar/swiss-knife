@@ -129,7 +129,7 @@ The light-weighted alpine-based images of \texttt{nginx} and \texttt{wordpress} 
 
 \section{Benchmarking}
 
-We benchmarked the request throughput of our WordPress blog setup by performing \texttt{GET} requests for retrieving the home page, and \texttt{POST} requests for adding a new page to the blog. To do this we tried out many different http benchmarking utilities. Httperf  \href{https://github.com/httperf/httperf}{httperf} turned out to be the most suitable. With \texttt{httperf} we can easily generate heavy loads of 10000+ request per second. We also compared the results with another tool, \texttt{wrk}, and they were similar.\\
+We benchmarked the request throughput of our WordPress blog setup by performing \texttt{GET} requests for retrieving the home page, and \texttt{POST} requests for adding a new page to the blog. To do this we tried out many different http benchmarking utilities. \href{https://github.com/httperf/httperf}{httperf} turned out to be the most suitable. We also ran our tests with another tool, \texttt{wrk}, and the results were similar.
 The exact command to reproduce the benchmarks and the results can be found \href{https://github.com/danbachar/swiss-knife/blob/master/task1/benchmark/README.md}{here}.
 
 
@@ -140,21 +140,30 @@ Using \texttt{httperf} we retrieved the front page \texttt{http://ryan.dse.in.tu
 
 \subsection{Create a page using the Rest API}
 
-Please install and activate the `miniOrange API Authentication plugin` in wordpress to reproduce this part. \\
+Please install and activate the \texttt{miniOrange API Authentication} plugin in Wordpress to reproduce this part.
 Also with \texttt{httperf} we sent 1000 POST requests to \texttt{http://ryan.dse.in.tum.de:8080/wp-json/wp/v2/pages} with the contents from \href{https://github.com/danbachar/swiss-knife/blob/master/task1/benchmark/bench2_content}{this file} to create a new blog page. The content size is about 6kB.\\
 The throughput was \texttt{5.3 req/s} or \texttt{190.0 ms/req} with request size \texttt{6968 B}, about 50 times less then the simple GET request.
 
+\begin{figure}
+\centering 
+\includegraphics[width=0.45\textwidth]{benchmark/res/bm_5.png}
+\caption{default state benchmark} 
+\label{bm_5}
+\end{figure}
+
 \subsection{Profiling}
-We use some full-system profiling tools \texttt{perf, bcc} to analyse the bottlenecks in the system and generate the Flamegraph at figure \ref{flamegraph} . It shows hot function of the process. We can analyse from the flamegraph that the php-fpm process takes much more cpu times than mysqld. And there are two peaks, and five hot kernel space functions of php-fpm, namely \texttt{\_\_sys\_sendto}, \texttt{filename\_lookup}, \texttt{do\_sys\_poll}, \texttt{\_\_sys\_recvfrom} and \texttt{vfs\_read}. These kernel-space functions undertake the responsibility of communication. And they do not occupy too much time slices. So we have little need to optimise them. Most of the time are consumed by the user-space function, even though we can not get their symbols, we should know they are doing tasks like scripts interpretation and process management, which may also not have much room for optimization. So we need to find other ways to extend the system performance instead of trying to change the source code.
+We use some full-system profiling tools \texttt{perf, bcc} to analyse the bottlenecks in the system and generate the Flamegraph at figure \ref{flamegraph}. It shows that the \texttt{php-fpm} process takes much more CPU time than \texttt{mysqld}. There are two visible peaks, and five hot kernel space functions, from \texttt{php-fpm}. These kernel-space functions undertake the responsibility of communication. Most of the time is consumed by the user-space functions, which do jobs like scripts interpretation and process management. We thus needed to find other ways of improving our performance, instead of trying to change the source code.
 The details of this part can be found \href{https://github.com/danbachar/swiss-knife/blob/master/task1/benchmark/optimization.md}{here}. 
 
 \begin{figure}
 \centering 
-\includegraphics[width=0.4\textwidth]{task1/bccprofile.png}
+\includegraphics[width=0.4\textwidth]{benchmark/res/bccprofile.png}
 \caption{Flamegraph} 
 \label{flamegraph}
 \end{figure}
 
+\subsection{Result}
+The initial version of our deployment, before the exploration task, reached 210 requests per second, with an average of 4.7 ms per request. The strong differences with the forthcoming improved version are especially felt here, with an improvement of over 16600\% in throughput.
 \section{Exploration Task}
 
 \subsection{Description}
@@ -165,23 +174,24 @@ The main objective of the exploration task is to optimise throughput and to demo
 
 We first increased the load on the system by using the http load testing method in the previous section with  and at the same time used the system monitor program(\texttt{top, sysstat, ss, docker stats}) to analyse the current usage of system resources such as cpu and memory, and analysed the hot functions in both user space and kernel space with the \texttt{bcc} system profiling tool. It was found that each \texttt{php-fpm} working process had enough CPU time to work, but the overall system performance was not fully utilized, so more child processes could still be forked to handle requests. At the same time, concurrent repeated requests would result in too many unnecessary database accesses, so the cache mechanism is used to increase the system.
 
-\begin{figure}
-\centering 
-\includegraphics[width=0.45\textwidth]{task1/bm_25_mariadb.png}
-\caption{25 php children with mariadb without cache reaches 1400 req/s} 
-\label{bm_25_mariadb}
-\end{figure}
-
 \subsection{Result}
 
-The original version of the nginx-php-mysql server had the throughput of \texttt{210 req/s} while requesting the front page with \texttt{GET}, after increasing the php-fpm's maximum amount of children working subprocesses to 25, it has reached a throughput of \texttt{1000+ req/s}.
-Replacing MySQL with MariaDB has allowed us to go beyond to \texttt{1400+ req/s}, as shown in figure \ref{bm_25_mariadb}. With 70 php-fpm subprocesses, after activating a Wordpress cache plugin has allowed us to reach a cap of \texttt{35543 req/s} requests per second compared to the \texttt{5431.01 req/s} without cache. For details, please see the document \href{https://github.com/danbachar/swiss-knife/blob/master/task1/benchmark/optimization.md}{here}. 
+The original version of the nginx-php-mysql server had the throughput of \texttt{210 req/s} while requesting the front page with \texttt{GET}, after increasing \texttt{php-fpm}'s maximum amount of children to 25, it has reached a throughput of \texttt{1000+ req/s}. Replacing MySQL with MariaDB has allowed us to go beyond to \texttt{1400+ req/s}. With 70 php-fpm subprocesses, we've reached \texttt{5431.01 req/s}, as shown on figure \ref{bm_70}.
+After activating the WP Super Cache plugin, we've reached a cap of \texttt{35543 req/s} requests per second compared to the \texttt{5431.01 req/s} without cache. For details, please see the document \href{https://github.com/danbachar/swiss-knife/blob/master/task1/benchmark/optimization.md}{here}. 
+
+\begin{figure} [htb]
+\centering 
+\includegraphics[width=0.4\textwidth]{benchmark/res/bm_70.png}
+\caption{70 php children with mariadb exceeds 5400 req/s}
+\label{bm_70}
+\end{figure}
+
 \newline
-The cache plugin has enabled a great improvement in our performance benchmarks because wordpress is a great candidate for caching. All wordpress pages are dynamic and are built by the requests with appropriate query and body parameters to a file called \texttt{index.php}. This file then builds the requested view for the user, and sends it back via the HTTP response. Since all of the benchmark requests are exactly the same, the plugin just has to create this file once, and statically serves this file to them, instead of going through the relatively expensive process of dynamically creating the requested view every time.
+The cache plugin has enabled a great improvement in our performance benchmarks because wordpress is a great candidate for caching. All wordpress pages are dynamic and are built by the requests with appropriate parameters to a file called \texttt{index.php}. The server then builds the requested view for the user, and sends it back via the HTTP response. Since all of the benchmark requests request the same page, the plugin just has to create this file once, and statically serves this file to them, instead of going through the relatively expensive process of dynamically creating the requested view every time.
 \newline
-The Database replacement came to mind because it is extremely easy, as MariaDB is a drop-in replacement for MySQL. Here we created a SQL dump from the database inside the container, exported it to the host machine, replaced the databases and imported the dump in the new MariaDB database.
+The database replacement came to mind because it is extremely easy, as MariaDB is a drop-in replacement for MySQL. 
 \newline
-Changing \texttt{php-fpm}'s child creation policy from dynamic to static had also a noticeable effect since instead of waiting for the child processes to be dynamically created as demand arrives, the child processes are already initially available. 
+Changing \texttt{php-fpm}'s \texttt{pm} setting to static had also a noticeable effect since instead of waiting for the child processes to be dynamically created as demand arrives, the child processes are statically available initially. 
 
 %-------------------------------------------------------------------------------
 \bibliographystyle{plain}
