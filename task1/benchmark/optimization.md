@@ -17,7 +17,7 @@ Before the benchmark, check the cpu load average(the average number of jobs in t
     $ uptime
     14:10:13  up 5 days  5:19,  9 users,  load average: 0.00, 0.08, 0.18
 
-After checking that the cpu is idle currently, we also need to check the sockets situation, use `ss -s`
+After checking that the cpu is currently idle, we also need to check the sockets situation, use `ss -s`
 
     ss -s
     Total: 745
@@ -30,11 +30,11 @@ After checking that the cpu is idle currently, we also need to check the sockets
     INET	  63        43        20       
     FRAG	  0         0         0 
 
-It is also accecpted, then we can run the load testing command at local or on the server. The following command will try to generate 500 connections per second with total connection numbers 10k:
+It is also acceptable, then we can run the load testing command at local or on the server. The following command will try to generate 500 connections per second with a total of 10,000 connections:
 
     $ httperf --server ryan.dse.in.tum.de --port 8080 --num-conns 10000 --uri / --method GET --rate 500
 
-Lets use `top` to see the statics at the same time
+Use `top` to see system stats
 
     top - 14:12:22 up 5 days,  5:21,  9 users,  load average: 1.31, 0.59, 0.37
     Tasks: 2074 total,   4 running, 2068 sleeping,   2 stopped,   0 zombie
@@ -236,6 +236,6 @@ Transfer/sec:  397.57MB
 
 ## Conclude
 
-To conclude, with adjusting websever parameters, database and cache, we can achive a hugh improvement on performance. 
+To conclude, with adjusting websever parameters, database and cache, we can achive a huge performance improvement. 
 
 The system is still limited by the maximum number of of open files and the port range. As `ulimit -n` only shows `1024`, so each process can only open 1024 files. With `sysctl net.ipv4.ip_local_port_range` we can know the original port range is `32768 60999`, so we have changed it to the `1024 65535` to maximize port utilization. 
