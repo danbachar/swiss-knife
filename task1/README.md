@@ -3,4 +3,6 @@
 `docker-compose up -d`
 
 Import posts: 
-Tools -> Import -> Wordpress (Install Now) Wordpress -> Import
+Tools -> Import -> Wordpress (Install Now) Wordpress -> Run Importer
+
+# Run benchmarks
