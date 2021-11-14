@@ -11,6 +11,7 @@ int main(int argc, char const *argv[])
     struct sockaddr_in6 address;
     int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 8080;
     char *buffer = (char *)malloc(1024), *ok = "HTTP/1.1 200 OK\n";
+    // Use curl 169.254.68.39:8080
     uint32_t interfaceIndex = if_nametoindex("swissknife0");
     address.sin6_scope_id = interfaceIndex;
 
