@@ -4,17 +4,17 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <net/if.h>
 
 int main(int argc, char const *argv[])
 {
-    struct sockaddr_in address;
+    struct sockaddr_in6 address;
     int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 8080;
-    char *buffer = malloc(1024), *ok = "HTTP/1.1 200 OK\n";
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(port);
+    char *buffer = (char *)malloc(1024), *ok = "HTTP/1.1 200 OK\n";
+    uint32_t interfaceIndex = if_nametoindex("swissknife0");
+    address.sin6_scope_id = interfaceIndex;
 
-    if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    if ((server_socket = socket(AF_INET6, SOCK_STREAM, 0)) == 0)
     {
         perror("socket failed");
         exit(EXIT_FAILURE);
@@ -25,6 +25,9 @@ int main(int argc, char const *argv[])
         perror("setsockopt failed");
         exit(EXIT_FAILURE);
     }
+    address.sin6_family = AF_INET6;
+    address.sin6_addr = in6addr_any;
+    address.sin6_port = htons(port);
     if (bind(server_socket, (struct sockaddr *)&address,
              addrlen) < 0)
     {
@@ -45,7 +48,8 @@ int main(int argc, char const *argv[])
             perror("accept");
             exit(EXIT_FAILURE);
         }
-        read(sock, buffer, sizeof(&buffer));
+        int n = read(sock, buffer, sizeof(&buffer));
+        (void)n;
         printf("received: \n%s\n", buffer);
         send(sock, ok, strlen(ok), 0);
         printf("sent: \n%s\n", ok);
