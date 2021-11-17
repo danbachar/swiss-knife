@@ -5,12 +5,13 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <net/if.h>
+#define BUFFSIZE 1024
 
 int main(int argc, char const *argv[])
 {
     struct sockaddr_in6 address;
     int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 8080;
-    char *buffer = (char *)malloc(1024), *ok = "HTTP/1.1 200 OK\n";
+    char *buffer = (char *)malloc(BUFFSIZE), *ok = "HTTP/1.1 200 OK\r\nContent-Length: 22\r\nContent-Type: text/html\r\n\r\nHello World from ATeam";
     // Use curl 169.254.68.39:8080
     uint32_t interfaceIndex = if_nametoindex("swissknife0");
     address.sin6_scope_id = interfaceIndex;
@@ -40,21 +41,31 @@ int main(int argc, char const *argv[])
         perror("listen failed");
         exit(EXIT_FAILURE);
     }
+
     while (1)
     {
-        memset(buffer, 0, sizeof(&buffer));
+        memset(buffer, 0, sizeof(char) * BUFFSIZE);
         if ((sock = accept(server_socket, (struct sockaddr *)&address,
                            (socklen_t *)&addrlen)) < 0)
         {
             perror("accept");
             exit(EXIT_FAILURE);
         }
-        int n = read(sock, buffer, sizeof(&buffer));
-        (void)n;
-        printf("received: \n%s\n", buffer);
-        send(sock, ok, strlen(ok), 0);
-        printf("sent: \n%s\n", ok);
-        close(sock);
+        while (1)
+        { //serve the client until the client close the connection
+            int n = read(sock, buffer, sizeof(char) * BUFFSIZE);
+            if (n <= 0)
+            {
+                close(sock);
+                break;
+            }
+            else
+            {
+                printf("received: \n%s\n", buffer);
+                send(sock, ok, strlen(ok), 0);
+                printf("sent: \n%s\n", ok);
+            }
+        }
     }
     free(buffer);
     return EXIT_SUCCESS;
