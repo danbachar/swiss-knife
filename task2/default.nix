@@ -9,10 +9,11 @@ stdenv.mkDerivation {
   buildPhase = ''
     gcc -o server server.c -lPocoFoundation -lboost_system
     gcc -o server_select server_select.c -lPocoFoundation -lboost_system
+    gcc -o server_epoll server_epoll.c -lPocoFoundation -lboost_system
   '';
 
   installPhase = ''
     mkdir -p $out/bin
-    cp server server_select $out/bin/
+    cp server server_select server_epoll $out/bin/
   '';
 }
