@@ -10,6 +10,25 @@
 #include <errno.h>
 #define BUFFSIZE 1024
 
+void setnonblocking(int sockfd)
+{
+	int flags;
+
+	flags = fcntl(sockfd, F_GETFL);
+
+	if(flags < 0) {
+		perror("fcntl(sockfd, GETFL)");
+		exit(1);
+	}
+
+	flags = flags | O_NONBLOCK;
+
+	if(fcntl(sockfd, F_SETFL, flags) < 0) {
+		perror("fcntl(sockfd, SETFL, opts)");
+		exit(1);
+	}
+}
+
 int main(int argc, char const *argv[])
 {
     struct sockaddr_in6 address;
@@ -30,6 +49,9 @@ int main(int argc, char const *argv[])
         perror("setsockopt failed");
         exit(EXIT_FAILURE);
     }
+
+    setnonblocking(server_socket);
+
     address.sin6_family = AF_INET6;
     address.sin6_addr = in6addr_any;
     address.sin6_port = htons(port);
@@ -65,43 +87,52 @@ int main(int argc, char const *argv[])
 
             if ((curfd == server_socket))
             {
-                int conn_fd = accept(server_socket, (struct sockaddr *)&address,
-                           (socklen_t *)&addrlen);
-                int flag = fcntl(conn_fd, F_GETFL);
-                flag |= O_NONBLOCK;
-                fcntl(conn_fd, F_SETFL, flag);
+                while(1){//try to accept all incoming connections
+                    int conn_fd = accept(server_socket, (struct sockaddr *)&address,
+                            (socklen_t *)&addrlen);
 
-                ev.events = EPOLLIN | EPOLLET;
-                ev.data.fd = conn_fd;
-                if (epoll_ctl(epfd, EPOLL_CTL_ADD, conn_fd, &ev) == -1)
-                {
-                    perror("Add conn_fd failed!");
-                    exit(0);
+                    if(conn_fd<0){
+                        if (errno != EWOULDBLOCK)
+                        {
+                            perror("accept failed");
+                            exit(EXIT_FAILURE);
+                        }
+                        break;
+                    }
+                    setnonblocking(conn_fd);
+
+                    ev.events = EPOLLIN | EPOLLET;
+                    ev.data.fd = conn_fd;
+                    if (epoll_ctl(epfd, EPOLL_CTL_ADD, conn_fd, &ev) == -1)
+                    {
+                        perror("Add conn_fd failed!");
+                        exit(0);
+                    }
                 }
             }
             else
-            { //@todo:simple version, which did not check EPOLLIN/EPOLLOUT
-                int n = read(curfd, buffer, sizeof(char) * BUFFSIZE);
-                if (n == 0)
-                {
-                    epoll_ctl(epfd, EPOLL_CTL_DEL, curfd, NULL);
-                    close(curfd);
-                }
-                else if (n < 0)
-                {
-                    if ((errno == EAGAIN) ||
-                        (errno == EWOULDBLOCK))
-                        continue;
-                    else{
+            {   //@todo:simple version, which did not check EPOLLIN/EPOLLOUT
+                /*Receive all incoming data on this socket before we loop back and call select again.*/
+                while(1){
+                    int n = read(curfd, buffer, sizeof(char) * BUFFSIZE);
+                    if (n == 0)
+                    {
                         epoll_ctl(epfd, EPOLL_CTL_DEL, curfd, NULL);
                         close(curfd);
-                    };
-                }
-                else
-                {
-                    printf("received: \n%s\n", buffer);
+                        break;
+                    }
+                    if (n < 0)
+                    {
+                        if ((errno == EAGAIN) ||
+                            (errno == EWOULDBLOCK))
+                            break;
+                        else{
+                            epoll_ctl(epfd, EPOLL_CTL_DEL, curfd, NULL);
+                            close(curfd);
+                            break;
+                        };
+                    }
                     send(curfd, ok, strlen(ok), 0);
-                    printf("sent: \n%s\n", ok);
                 }
             }
         }
