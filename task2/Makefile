@@ -14,15 +14,15 @@ run:
 	./server.out
 
 asan: FORCE
-  $(CC) $(SOURCE) $(INCLUDEDIRS:%=-I%) -o $@.out -std=c11 -O0 $(WFLAGS) -Werror -fsanitize=address
+  $(CC) $(SOURCE) -o $@.out -std=c11 -O0 $(WFLAGS) -Werror -fsanitize=address
 
 ubsan: FORCE
-  $(CC) $(SOURCE) $(INCLUDEDIRS:%=-I%) -o $@.out -std=c11 -O0 $(WFLAGS) -Werror -fsanitize=undefined
+  $(CC) $(SOURCE) -o $@.out -std=c11 -O0 $(WFLAGS) -Werror -fsanitize=undefined
 
 lsan: FORCE
-  $(CC) $(SOURCE) $(INCLUDEDIRS:%=-I%) -o $@.out -std=c11 -O0 $(WFLAGS) -Werror -fsanitize=leak
+  $(CC) $(SOURCE) -o $@.out -std=c11 -O0 $(WFLAGS) -Werror -fsanitize=leak
 
 staticAnalysis: FORCE
-  $(CC) $(SOURCE) $(INCLUDEDIRS:%=-I%) -o $@.out -std=c11 -O0 $(WFLAGS) -Werror -fanalyzer
+  $(CC) $(SOURCE) -o $@.out -std=c11 -O0 $(WFLAGS) -Werror -fanalyzer
 
 FORCE: ;
