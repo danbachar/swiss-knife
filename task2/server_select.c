@@ -5,13 +5,15 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <net/if.h>
+#include <sys/ioctl.h>
+#include <errno.h>
 
 #define BUFFSIZE 1024
 
 int main(int argc, char const *argv[])
 {
     struct sockaddr_in6 address;
-    int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 8080;
+    int server_socket, sock, addrlen = sizeof(address), on = 1, port = 8080;
     char *buffer = (char *)malloc(BUFFSIZE), *ok = "HTTP/1.1 200 OK\r\nContent-Length: 22\r\nContent-Type: text/html\r\n\r\nHello World from ATeam";
     // Use curl 169.254.68.39:8080
     uint32_t interfaceIndex = if_nametoindex("swissknife0");
@@ -23,11 +25,19 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
     if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR,
-                   &reuse, sizeof(reuse)))
+                   &on, sizeof(on)))
     {
         perror("setsockopt failed");
         exit(EXIT_FAILURE);
     }
+
+    if (ioctl(server_socket, FIONBIO, (char *)&on) < 0)
+    {
+        perror("ioctl() failed");
+        close(server_socket);
+        exit(-1);
+    }
+
     address.sin6_family = AF_INET6;
     address.sin6_addr = in6addr_any;
     address.sin6_port = htons(port);
@@ -71,27 +81,41 @@ int main(int argc, char const *argv[])
             if (FD_ISSET (i, &read_fd_set))
             {
                 if(i==server_socket){
-                    if ((sock = accept(server_socket, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
-                    {
-                        perror("accept failed");
-                        exit(EXIT_FAILURE);
-                    }
-                    FD_SET (sock, &active_fd_set);
+                    while(1){//try to accept all incoming connections
+                        if ((sock = accept(server_socket, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
+                        {
+                            if (errno != EWOULDBLOCK)
+                            {
+                                perror("accept failed");
+                                exit(EXIT_FAILURE);
+                            }
+                            break;
+                        }
+                        FD_SET (sock, &active_fd_set);
+                    };
                 }
                 else
                 {
-                    ret = recv(i, buffer, sizeof(char) * BUFFSIZE,0);
-                    if (ret <= 0)
-                    {
-                        printf("client[%d] close\n", i);
-                        close(i);
-                        FD_CLR(i, &active_fd_set);
-                    }
-                    else
-                    {
-                        printf("received: \n%s\n", buffer);
+                    /*Receive all incoming data on this socket before we loop back and call select again.*/
+                    while(1){
+                            
+                        ret = recv(i, buffer, sizeof(char) * BUFFSIZE,0);
+                        if (ret < 0)
+                        {
+                            if (errno != EWOULDBLOCK)
+                            {
+                                perror("  recv() failed");
+                                close(i);
+                                FD_CLR(i, &active_fd_set);
+                            }
+                            break;
+                        }
+                        if (ret == 0){
+                            close(i);
+                            FD_CLR(i, &active_fd_set);
+                            break;
+                        }
                         send(i, ok, strlen(ok), 0);
-                        printf("sent: \n%s\n", ok);
                     }
                 }
             }
