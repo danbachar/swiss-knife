@@ -61,9 +61,7 @@ int main(int argc, char const *argv[])
             }
             else
             {
-                printf("received: \n%s\n", buffer);
                 send(sock, ok, strlen(ok), 0);
-                printf("sent: \n%s\n", ok);
             }
         }
     }
