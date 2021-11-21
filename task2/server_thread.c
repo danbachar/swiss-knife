@@ -27,9 +27,7 @@ void* worker_foo(void* args) {
         }
         else
         {
-            printf("received: \n%s\n", buffer);
             send(sock, ok, strlen(ok), 0);
-            printf("sent: \n%s\n", ok);
         }
     }
 
@@ -93,10 +91,8 @@ int main(int argc, char const *argv[])
                 pthread_mutex_lock(&t_lock);
                 t_cnt++;
                 pthread_mutex_unlock(&t_lock);
-                printf("create new thread, count: %d\n", t_cnt);
             }
         } else {
-            printf("too_many_clients\n");
             close(sock);
         }
     }
