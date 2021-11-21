@@ -4,6 +4,9 @@ import pandas as pd
 
 CONNECTIONS = 'Connections'
 REQS_PER_SEC = 'Requests/Second'
+DATA_FILENAME = 'benchmark_output.csv'
+PLOT_FILENAME = 'benchmark_plot.png'
+PORT = 8081
 
 
 def benchmark(data_filename, plot_filename, port):
@@ -26,3 +29,5 @@ def benchmark(data_filename, plot_filename, port):
     print(df)
     df.plot(x=CONNECTIONS, y=REQS_PER_SEC)
     plt.savefig(plot_filename)
+
+benchmark(DATA_FILENAME, PLOT_FILENAME, PORT)
