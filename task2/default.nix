@@ -17,4 +17,7 @@ stdenv.mkDerivation {
     mkdir -p $out/bin
     cp server server_select server_epoll server_thread $out/bin/
   '';
+  shellHook = ''
+    nix-shell -p python38Packages.pandas python35Packages.numpy
+  '';
 }
