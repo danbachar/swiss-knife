@@ -1,4 +1,6 @@
+import getopt
 import os
+import sys
 import matplotlib.pyplot as plt
 import pandas as pd
 import netifaces as ni
@@ -40,7 +42,6 @@ def benchmark(data_filename, plot_filename, port):
     print(df)
     df.plot(x=CONNECTIONS, y=REQS_PER_SEC)
     plt.savefig(plot_filename)
-
 
 
 def main(argv):
