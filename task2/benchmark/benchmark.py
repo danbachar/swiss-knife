@@ -42,4 +42,27 @@ def benchmark(data_filename, plot_filename, port):
     plt.savefig(plot_filename)
 
 
-benchmark(DATA_FILENAME, PLOT_FILENAME, PORT)
+
+def main(argv):
+    try:
+        opts, args = getopt.getopt(argv, "p:f:d:",
+                                   ["port=" "plot_filename=" "data_filename=" "interface="])
+    except getopt.GetoptError:
+        print("Syntax Error.")
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ("-p", "--port"):
+            global port
+            port = arg
+        elif opt in ("-f", "--filename_plot"):
+            global plot_filename
+            plot_filename = arg + ".png"
+        elif opt in ("-d", "--filename_data"):
+            global data_filename
+            data_filename = arg + ".csv"
+    benchmark(data_filename, plot_filename, port)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
