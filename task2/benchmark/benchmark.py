@@ -47,7 +47,7 @@ def benchmark(data_filename, plot_filename, port):
 def main(argv):
     try:
         opts, args = getopt.getopt(argv, "p:f:d:",
-                                   ["port=" "plot_filename=" "data_filename=" "interface="])
+                                   ["port=" "plot_filename=" "data_filename="])
     except getopt.GetoptError:
         print("Syntax Error.")
         sys.exit(2)

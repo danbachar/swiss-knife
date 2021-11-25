@@ -10,7 +10,7 @@
 int main(int argc, char const *argv[])
 {
     struct sockaddr_in6 address;
-    int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 8081;
+    int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 64000;
     char *buffer = (char *)malloc(BUFFSIZE), *ok = "HTTP/1.1 200 OK\r\nContent-Length: 22\r\nContent-Type: text/html\r\n\r\nHello World from ATeam";
     uint32_t interfaceIndex;
 

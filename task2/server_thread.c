@@ -40,7 +40,7 @@ void* worker_foo(void* args) {
 int main(int argc, char const *argv[])
 {
     struct sockaddr_in6 address;
-    int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 8080;
+    int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 64004;
         // Use curl 169.254.68.39:8080
     uint32_t interfaceIndex = if_nametoindex("swissknife0");
     address.sin6_scope_id = interfaceIndex;
