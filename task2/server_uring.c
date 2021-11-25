@@ -170,7 +170,7 @@ void server_loop(int server_socket) {
                 break;
             case EVENT_TYPE_READ:
                 if (!cqe->res) {
-                    fprintf(stderr, "Empty request!\n");
+                    // fprintf(stderr, "Empty request!\n");
                     break;
                 }
                 handle_client_request(req);
