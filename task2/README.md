@@ -15,7 +15,7 @@ The throughputs are plotted according to different connections. The flamegraph o
 
 But what has to be mentioned is that the benchmark tool `wrk` uses reactor pattern with epoll multiplexing. By default, it uses `HTTP/1.1` and creates keep-alive connections. This will result in that it will not try to close the sockets. So even with few connections we can also achieve high throughput.
 
-During the benchmark, there will be some messages like `recv() failed: Connection reset by peer` or `Empyt request`, it's the perror messages of the server, which is just a log of the events happening. The other messages are not printed out, because non-asynchronous logging will block the system.
+During the benchmark, there will be some messages like `recv() failed: Connection reset by peer` or `Empty request`, it's the perror messages of the server, which is just a log of the events happening. The other messages are not printed out, because non-asynchronous logging will block the system.
 
 The servers use IPv6 protocol and bind to the interface `swissknife0` as its local-link address.
 
@@ -23,7 +23,7 @@ The servers use IPv6 protocol and bind to the interface `swissknife0` as its loc
 
 The final result is as follows(Note: These values may change due to server conditions):
 
-server_epoll_multitask(`1135671.21req/s`) > server_thread(`970999.68req/s`) > server_epoll(`124957.35req/s`) > server_select(`88595.91req/s`) ≈ server(`88389.19req/s`) > server_uring(`44156.76req/s`)
+server_epoll_multiprocess(`1135671.21req/s`) > server_thread(`970999.68req/s`) > server_epoll(`124957.35req/s`) > server_select(`88595.91req/s`) ≈ server(`88389.19req/s`) > server_uring(`44156.76req/s`)
 
 Please refer to the report for detailed analysis of the results.
 
@@ -41,9 +41,9 @@ Here are the demo plots generated. (It is fluctuating as expexted, but overall i
  
   <img src="./demo/server_epoll.png" width="50%" height="50%">
 
-- server_epoll_multitask:
+- server_epoll_multiprocess:
  
-  <img src="./demo/server_epoll_multitask.png" width="50%" height="50%">
+  <img src="./demo/server_epoll_multiprocess.png" width="50%" height="50%">
 
 - server_thread: 
 

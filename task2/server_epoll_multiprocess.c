@@ -1,6 +1,6 @@
 /*
  *  This version of epoll takes advantages of SO_REUSEPORT (since Linux 3.9) mechanism
- *  to handle with thundering herd problem in multitasks/multithreads system. 
+ *  to handle with thundering herd problem in multiprocesses/multithreads system. 
  *  Like Nginx, there are WORKER_NUM subprocesses which bind to to the same port.
  *  As they are different epollfds, there is no need to add mutex lock. The kernel will
  *  distribute incoming listenfds. 
