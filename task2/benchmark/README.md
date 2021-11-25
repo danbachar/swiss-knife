@@ -1,4 +1,5 @@
 ## Benchmarking
+Note: This is just a tutorial to run the benchmark with a specific server independently, you should directly use the script `reproduce.py`
 
 Prerequisites: 
 - Python3
