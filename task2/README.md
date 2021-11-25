@@ -22,3 +22,33 @@ The final result is as follows(Note: These values may change due to server condi
 server_epoll_multitask(`1135671.21req/s`) > server_thread(`970999.68req/s`) > server_epoll(`124957.35req/s`) > server_select(`88595.91req/s`) ≈ server(`88389.19req/s`) > server_uring(`44156.76req/s`)
 
 Please refer to the report for detailed analysis of the results.
+
+Here is the demo plots generated. (It is fluctuating as expexted, but overall it is stable in a certain range.)
+
+- basic_server:
+ 
+  <img src="./demo/server.png" width="50%" height="50%">
+
+- server_select:
+
+  <img src="./demo/server_select.png" width="50%" height="50%">
+
+- server_epoll.png:
+ 
+  <img src="./demo/server_epoll.png" width="50%" height="50%">
+
+- server_epoll_multitask:
+ 
+  <img src="./demo/server_epoll_multitask.png" width="50%" height="50%">
+
+- server_thread: 
+
+  <img src="./demo/server_thread.png" width="50%" height="50%">
+
+- server_uring:
+  
+  <img src="./demo/server_uring.png" width="50%" height="50%">
+
+- Flamegraph of `server_epoll`
+
+  ![epoll_flamegraph](./demo/epoll_flamegragh.png)
