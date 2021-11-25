@@ -14,9 +14,9 @@ PORT = 8081
 
 # retrieve the ip address of the swissknife0 interface
 ip = list(
-    filter(lambda ip: "swissknife0" in ip,
+    filter(lambda ip: "swissknife1" in ip,
            (map(lambda ip: ip["addr"],
-                ni.ifaddresses('swissknife0')[ni.AF_INET6])
+                ni.ifaddresses('swissknife1')[ni.AF_INET6])
             )
            )
 ).pop()
