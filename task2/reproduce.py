@@ -4,7 +4,7 @@ import os
 import subprocess
 
 PORTS = [64000, 64001, 64002, 64003, 64004, 64005]
-SERVERS = ["server", "server_epoll", "server_epoll_multitask",
+SERVERS = ["server", "server_epoll", "server_epoll_multiprocess",
            "server_select", "server_thread", "server_uring"]
 
 
