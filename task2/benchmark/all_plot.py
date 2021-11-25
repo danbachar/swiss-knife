@@ -1,4 +1,5 @@
 import sys
+import os
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -7,7 +8,7 @@ REQS_PER_SEC = 'Requests/Second'
 
 def plot(plot_filename):
     data_files = ["server.csv", "server_epoll.csv", 
-                    "server_epoll_multitask.csv", "server_select.csv", 
+                    "server_epoll_multiprocess.csv", "server_select.csv", 
                     "server_thread.csv", "server_uring.csv"]
     df0 = pd.read_csv(data_files[0])
     df1 = pd.read_csv(data_files[1])
@@ -26,6 +27,7 @@ def plot(plot_filename):
 
 
 def main(argv):
+    os.chdir('./plots')
     plot('all_plot.png')
 
 

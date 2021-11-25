@@ -72,7 +72,7 @@ def main(argv):
             flamegraph_filename = arg
         elif opt in ("-d", "--filename_data"):
             global data_filename
-            data_filename = arg + ".csv"
+            data_filename = './plots/' + arg + ".csv"
     benchmark(data_filename, plot_filename, port)
     flamegraph(flamegraph_filename, port)
 

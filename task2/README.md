@@ -19,6 +19,8 @@ During the benchmark, there will be some messages like `recv() failed: Connectio
 
 The servers use IPv6 protocol and bind to the interface `swissknife0` as its local-link address.
 
+The benchmark `wrk` binds to Interface `swissknife1` with the following format `wrk -t 10 -c 1000 http://[fe80::e63d:1aff:fe72:f1%swissknife1]:64000`
+
 ### result
 
 The final result is as follows(Note: These values may change due to server conditions):
@@ -56,3 +58,7 @@ Here are the demo plots generated. (It is fluctuating as expexted, but overall i
 - Flamegraph of `server_epoll`
 
   ![epoll_flamegraph](./demo/epoll_flamegragh.png)
+
+- all plots:
+
+  ![all_plot](./benchmark/all_plot.png)
