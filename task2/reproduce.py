@@ -73,15 +73,16 @@ def nix_build() -> None:
     print(stream.read())
 
 
-def prepare_flamegraph() -> None:
+def prepare_plots() -> None:
     clone = "git clone https://github.com/brendangregg/FlameGraph"
     os.system(clone)
+    os.makedirs('./plots', exist_ok=True)
 
 def main() -> None:
     nix_build()
     open_ports()
     start_servers()
-    prepare_flamegraph()
+    prepare_plots()
     benchmarks()
 
 if __name__ == "__main__":

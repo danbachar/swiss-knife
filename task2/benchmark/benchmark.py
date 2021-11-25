@@ -42,16 +42,16 @@ def benchmark(data_filename, plot_filename, port):
     df = pd.read_csv(data_filename)
     print(df)
     df.plot(x=CONNECTIONS, y=REQS_PER_SEC)
-    plt.savefig(plot_filename)
+    plt.savefig('./plots/' + plot_filename)
 
 def flamegraph(flamegraph_filename, port):
     out = os.popen(
         f'wrk -t 10 -c 1000 -d 10 {URL}:{port} &')
     out = os.popen(
-        f'sudo profile -F 99 -adf 10 > {flamegraph_filename}_folded &')
+        f'sudo profile -F 99 -adf 10 > ./plots/{flamegraph_filename}_folded &')
     time.sleep(15)
     out = os.popen(
-        f'perl ./FlameGraph/flamegraph.pl --colors=java ./{flamegraph_filename}_folded > {flamegraph_filename}.svg')
+        f'perl ./FlameGraph/flamegraph.pl --colors=java ./plots/{flamegraph_filename}_folded > ./plots/{flamegraph_filename}.svg')
        
 
 def main(argv):
