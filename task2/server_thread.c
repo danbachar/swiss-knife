@@ -16,9 +16,9 @@ const char *ok = "HTTP/1.1 200 OK\r\nContent-Length: 22\r\nContent-Type: text/ht
 void* worker_foo(void* args) {
     int sock = *((int *)args);
     char *buffer = (char *)malloc(BUFFSIZE);
-    memset(buffer, 0, sizeof(char) * BUFFSIZE);
     while (1)
     { //serve the client until the client close the connection
+        memset(buffer, 0, sizeof(char) * BUFFSIZE);
         int ret = read(sock, buffer, sizeof(char) * BUFFSIZE);
         if (ret <= 0)
         {

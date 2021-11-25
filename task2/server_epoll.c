@@ -73,7 +73,7 @@ int main(int argc, char const *argv[])
     struct epoll_event evs[1024];
 
     epfd = epoll_create(1);
-    ev.events = EPOLLIN;
+    ev.events = EPOLLIN | EPOLLET;
     ev.data.fd = server_socket;
     epoll_ctl(epfd, EPOLL_CTL_ADD, server_socket, &ev);
 
@@ -114,6 +114,7 @@ int main(int argc, char const *argv[])
             {   //@todo:simple version, which did not check EPOLLIN/EPOLLOUT
                 /*Receive all incoming data on this socket before we loop back and call select again.*/
                 while(1){
+		    memset(buffer, 0, sizeof(char) * BUFFSIZE);
                     int n = read(curfd, buffer, sizeof(char) * BUFFSIZE);
                     if (n == 0)
                     {

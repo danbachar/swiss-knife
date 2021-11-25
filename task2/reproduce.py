@@ -13,7 +13,7 @@ def benchmarks() -> None:
     print("Performing benchmarks... (can take a while)")
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     # we use subprocess as we need better handling of readlines
-    for i in range(0, 5):
+    for i in range(0, 6):
         print("++++++++++++++++++++++++++++++++++++++++++++++++")
         print("Benchmarking " + SERVERS[i] + " implementation")
         print("++++++++++++++++++++++++++++++++++++++++++++++++")

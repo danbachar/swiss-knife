@@ -98,7 +98,7 @@ int main(int argc, char const *argv[])
                 {
                     /*Receive all incoming data on this socket before we loop back and call select again.*/
                     while(1){
-                            
+                        memset(buffer, 0, sizeof(char) * BUFFSIZE);            
                         ret = recv(i, buffer, sizeof(char) * BUFFSIZE,0);
                         if (ret < 0)
                         {
