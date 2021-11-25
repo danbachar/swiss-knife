@@ -17,7 +17,7 @@ def benchmarks() -> None:
         print("++++++++++++++++++++++++++++++++++++++++++++++++")
         print("Benchmarking " + SERVERS[i] + " implementation")
         print("++++++++++++++++++++++++++++++++++++++++++++++++")
-        process = subprocess.Popen(['python', './benchmark/benchmark.py', '-p', str(PORTS[i]), '-f', str(SERVERS[i]), '-d ', str(SERVERS[i])],
+        process = subprocess.Popen(['python', './benchmark/benchmark.py', '-p', str(PORTS[i]), '-f', str(SERVERS[i]), '-d', str(SERVERS[i])],
                                    stdout=subprocess.PIPE,
                                    universal_newlines=True)
 
@@ -78,12 +78,18 @@ def prepare_plots() -> None:
     os.system(clone)
     os.makedirs('./plots', exist_ok=True)
 
+
+def plot_all() -> None:
+    os.system('python ./benchmark/all_plot.py')
+
+
 def main() -> None:
     nix_build()
     open_ports()
     start_servers()
     prepare_plots()
     benchmarks()
+    plot_all()
 
 if __name__ == "__main__":
     main()
