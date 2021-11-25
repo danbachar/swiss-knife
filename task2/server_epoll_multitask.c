@@ -41,7 +41,7 @@ void setnonblocking(int sockfd)
 
 int initSocket(){
     struct sockaddr_in6 address;
-    int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 8080;
+    int server_socket, sock, addrlen = sizeof(address), reuse = 1, port = 64002;
         // Use curl 169.254.68.39:8080
     uint32_t interfaceIndex = if_nametoindex("swissknife0");
     address.sin6_scope_id = interfaceIndex;
