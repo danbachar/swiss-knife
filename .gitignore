@@ -2,3 +2,8 @@
 
 *.png
 *.csv
+
+task3/kvstore/YCSB/
+task3/kvstore/memcacehd-1.6.12/
+task3/kvstore/rocksdb/
+task3/kvstore/ycsb*

@@ -1,0 +1,503 @@
+        -:    0:Source:crc32c.c
+        -:    0:Graph:crc32c.gcno
+        -:    0:Data:crc32c.gcda
+        -:    0:Runs:396
+        -:    1:/* crc32c.c -- compute CRC-32C using the Intel crc32 instruction
+        -:    2: * Copyright (C) 2013, 2015 Mark Adler
+        -:    3: * Version 1.3  31 Dec 2015  Mark Adler
+        -:    4: */
+        -:    5:
+        -:    6:/*
+        -:    7:  This software is provided 'as-is', without any express or implied
+        -:    8:  warranty.  In no event will the author be held liable for any damages
+        -:    9:  arising from the use of this software.
+        -:   10:
+        -:   11:  Permission is granted to anyone to use this software for any purpose,
+        -:   12:  including commercial applications, and to alter it and redistribute it
+        -:   13:  freely, subject to the following restrictions:
+        -:   14:
+        -:   15:  1. The origin of this software must not be misrepresented; you must not
+        -:   16:     claim that you wrote the original software. If you use this software
+        -:   17:     in a product, an acknowledgment in the product documentation would be
+        -:   18:     appreciated but is not required.
+        -:   19:  2. Altered source versions must be plainly marked as such, and must not be
+        -:   20:     misrepresented as being the original software.
+        -:   21:  3. This notice may not be removed or altered from any source distribution.
+        -:   22:
+        -:   23:  Mark Adler
+        -:   24:  madler@alumni.caltech.edu
+        -:   25: */
+        -:   26:
+        -:   27:/* Use hardware CRC instruction on Intel SSE 4.2 processors.  This computes a
+        -:   28:   CRC-32C, *not* the CRC-32 used by Ethernet and zip, gzip, etc.  A software
+        -:   29:   version is provided as a fall-back, as well as for speed comparisons. */
+        -:   30:
+        -:   31:/* Version history:
+        -:   32:   1.0  10 Feb 2013  First version
+        -:   33:   1.1   1 Aug 2013  Correct comments on why three crc instructions in parallel
+        -:   34:   1.2   1 Nov 2015  Add const qualifier to avoid compiler warning
+        -:   35:                     Load entire input into memory (test code)
+        -:   36:                     Argument gives number of times to repeat (test code)
+        -:   37:                     Argument < 0 forces software implementation (test code)
+        -:   38:   1.3  31 Dec 2015  Check for Intel architecture using compiler macro
+        -:   39:                     Support big-endian processors in software calculation
+        -:   40:                     Add header for external use
+        -:   41: */
+        -:   42:
+        -:   43:#include <pthread.h>
+        -:   44:#include "crc32c.h"
+        -:   45:
+        -:   46:crc_func crc32c;
+        -:   47:
+        -:   48:/* CRC-32C (iSCSI) polynomial in reversed bit order. */
+        -:   49:#define POLY 0x82f63b78
+        -:   50:
+        -:   51:uint32_t crc32c_sw_little(uint32_t crc, void const *buf, size_t len);
+        -:   52:uint32_t crc32c_sw_big(uint32_t crc, void const *buf, size_t len);
+        -:   53:#ifdef __x86_64__
+        -:   54:
+        -:   55:/* Hardware CRC-32C for Intel and compatible processors. */
+        -:   56:
+        -:   57:/* Multiply a matrix times a vector over the Galois field of two elements,
+        -:   58:   GF(2).  Each element is a bit in an unsigned integer.  mat must have at
+        -:   59:   least as many entries as the power of two for most significant one bit in
+        -:   60:   vec. */
+        -:   61:static inline uint32_t gf2_matrix_times(uint32_t *mat, uint32_t vec) {
+     6048:   62:    uint32_t sum = 0;
+   448945:   63:    while (vec) {
+   428561:   64:        if (vec & 1)
+   127204:   65:            sum ^= *mat;
+   428561:   66:        vec >>= 1;
+   428561:   67:        mat++;
+        -:   68:    }
+    20384:   69:    return sum;
+        -:   70:}
+        -:   71:
+        -:   72:/* Multiply a matrix by itself over GF(2).  Both mat and square must have 32
+        -:   73:   rows. */
+      189:   74:static inline void gf2_matrix_square(uint32_t *square, uint32_t *mat) {
+     6237:   75:    for (unsigned n = 0; n < 32; n++)
+    12096:   76:        square[n] = gf2_matrix_times(mat, mat[n]);
+      189:   77:}
+        -:   78:
+        -:   79:/* Construct an operator to apply len zeros to a crc.  len must be a power of
+        -:   80:   two.  If len is not a power of two, then the result is the same as for the
+        -:   81:   largest power of two less than len.  The result for len == 0 is the same as
+        -:   82:   for len == 1.  A version of this routine could be easily written for any
+        -:   83:   len, but that is not needed for this application. */
+       14:   84:static void crc32c_zeros_op(uint32_t *even, size_t len) {
+       14:   85:    uint32_t odd[32];       /* odd-power-of-two zeros operator */
+        -:   86:
+        -:   87:    /* put operator for one zero bit in odd */
+       14:   88:    odd[0] = POLY;              /* CRC-32C polynomial */
+       14:   89:    uint32_t row = 1;
+      448:   90:    for (unsigned n = 1; n < 32; n++) {
+      434:   91:        odd[n] = row;
+      434:   92:        row <<= 1;
+        -:   93:    }
+        -:   94:
+        -:   95:    /* put operator for two zero bits in even */
+       14:   96:    gf2_matrix_square(even, odd);
+        -:   97:
+        -:   98:    /* put operator for four zero bits in odd */
+       14:   99:    gf2_matrix_square(odd, even);
+        -:  100:
+        -:  101:    /* first square will put the operator for one zero byte (eight zero bits),
+        -:  102:       in even -- next square puts operator for two zero bytes in odd, and so
+        -:  103:       on, until len has been rotated down to zero */
+       84:  104:    do {
+       84:  105:        gf2_matrix_square(even, odd);
+       84:  106:        len >>= 1;
+       84:  107:        if (len == 0)
+        7:  108:            return;
+       77:  109:        gf2_matrix_square(odd, even);
+       77:  110:        len >>= 1;
+       77:  111:    } while (len);
+        -:  112:
+        -:  113:    /* answer ended up in odd -- copy to even */
+      231:  114:    for (unsigned n = 0; n < 32; n++)
+      224:  115:        even[n] = odd[n];
+        -:  116:}
+        -:  117:
+        -:  118:/* Take a length and build four lookup tables for applying the zeros operator
+        -:  119:   for that length, byte-by-byte on the operand. */
+       14:  120:static void crc32c_zeros(uint32_t zeros[][256], size_t len) {
+       14:  121:    uint32_t op[32];
+        -:  122:
+       14:  123:    crc32c_zeros_op(op, len);
+     3598:  124:    for (unsigned n = 0; n < 256; n++) {
+     3584:  125:        zeros[0][n] = gf2_matrix_times(op, n);
+     3584:  126:        zeros[1][n] = gf2_matrix_times(op, n << 8);
+     3584:  127:        zeros[2][n] = gf2_matrix_times(op, n << 16);
+     7168:  128:        zeros[3][n] = gf2_matrix_times(op, n << 24);
+        -:  129:    }
+       14:  130:}
+        -:  131:
+        -:  132:/* Apply the zeros operator table to crc. */
+  1139088:  133:static inline uint32_t crc32c_shift(uint32_t zeros[][256], uint32_t crc) {
+  1139088:  134:    return zeros[0][crc & 0xff] ^ zeros[1][(crc >> 8) & 0xff] ^
+  1139088:  135:           zeros[2][(crc >> 16) & 0xff] ^ zeros[3][crc >> 24];
+        -:  136:}
+        -:  137:
+        -:  138:/* Block sizes for three-way parallel crc computation.  LONG and SHORT must
+        -:  139:   both be powers of two.  The associated string constants must be set
+        -:  140:   accordingly, for use in constructing the assembler instructions. */
+        -:  141:#define LONG 8192
+        -:  142:#define LONGx1 "8192"
+        -:  143:#define LONGx2 "16384"
+        -:  144:#define SHORT 256
+        -:  145:#define SHORTx1 "256"
+        -:  146:#define SHORTx2 "512"
+        -:  147:
+        -:  148:/* Tables for hardware crc that shift a crc by LONG and SHORT zeros. */
+        -:  149:static pthread_once_t crc32c_once_hw = PTHREAD_ONCE_INIT;
+        -:  150:static uint32_t crc32c_long[4][256];
+        -:  151:static uint32_t crc32c_short[4][256];
+        -:  152:
+        -:  153:/* Initialize tables for shifting crcs. */
+        7:  154:static void crc32c_init_hw(void) {
+        7:  155:    crc32c_zeros(crc32c_long, LONG);
+        7:  156:    crc32c_zeros(crc32c_short, SHORT);
+        7:  157:}
+        -:  158:
+        -:  159:/* Compute CRC-32C using the Intel hardware instruction. */
+    23949:  160:static uint32_t crc32c_hw(uint32_t crc, void const *buf, size_t len) {
+        -:  161:    /* populate shift tables the first time through */
+    23949:  162:    pthread_once(&crc32c_once_hw, crc32c_init_hw);
+        -:  163:
+        -:  164:    /* pre-process the crc */
+    23949:  165:    crc = ~crc;
+    23949:  166:    uint64_t crc0 = crc;            /* 64-bits for crc32q instruction */
+        -:  167:
+        -:  168:    /* compute the crc for up to seven leading bytes to bring the data pointer
+        -:  169:       to an eight-byte boundary */
+    23949:  170:    unsigned char const *next = buf;
+   107713:  171:    while (len && ((uintptr_t)next & 7) != 0) {
+    83764:  172:        __asm__("crc32b\t" "(%1), %0"
+        -:  173:                : "=r"(crc0)
+        -:  174:                : "r"(next), "0"(crc0));
+    83764:  175:        next++;
+    83764:  176:        len--;
+        -:  177:    }
+        -:  178:
+        -:  179:    /* compute the crc on sets of LONG*3 bytes, executing three independent crc
+        -:  180:       instructions, each on LONG bytes -- this is optimized for the Nehalem,
+        -:  181:       Westmere, Sandy Bridge, and Ivy Bridge architectures, which have a
+        -:  182:       throughput of one crc per cycle, but a latency of three cycles */
+    31171:  183:    while (len >= LONG*3) {
+     7222:  184:        uint64_t crc1 = 0;
+     7222:  185:        uint64_t crc2 = 0;
+     7222:  186:        unsigned char const * const end = next + LONG;
+  7395328:  187:        do {
+  7395328:  188:            __asm__("crc32q\t" "(%3), %0\n\t"
+        -:  189:                    "crc32q\t" LONGx1 "(%3), %1\n\t"
+        -:  190:                    "crc32q\t" LONGx2 "(%3), %2"
+        -:  191:                    : "=r"(crc0), "=r"(crc1), "=r"(crc2)
+        -:  192:                    : "r"(next), "0"(crc0), "1"(crc1), "2"(crc2));
+  7395328:  193:            next += 8;
+  7395328:  194:        } while (next < end);
+     7222:  195:        crc0 = crc32c_shift(crc32c_long, crc0) ^ crc1;
+     7222:  196:        crc0 = crc32c_shift(crc32c_long, crc0) ^ crc2;
+     7222:  197:        next += LONG*2;
+     7222:  198:        len -= LONG*3;
+        -:  199:    }
+        -:  200:
+        -:  201:    /* do the same thing, but now on SHORT*3 blocks for the remaining data less
+        -:  202:       than a LONG*3 block */
+   586271:  203:    while (len >= SHORT*3) {
+   562322:  204:        uint64_t crc1 = 0;
+   562322:  205:        uint64_t crc2 = 0;
+   562322:  206:        unsigned char const * const end = next + SHORT;
+ 17994304:  207:        do {
+ 17994304:  208:            __asm__("crc32q\t" "(%3), %0\n\t"
+        -:  209:                    "crc32q\t" SHORTx1 "(%3), %1\n\t"
+        -:  210:                    "crc32q\t" SHORTx2 "(%3), %2"
+        -:  211:                    : "=r"(crc0), "=r"(crc1), "=r"(crc2)
+        -:  212:                    : "r"(next), "0"(crc0), "1"(crc1), "2"(crc2));
+ 17994304:  213:            next += 8;
+ 17994304:  214:        } while (next < end);
+   562322:  215:        crc0 = crc32c_shift(crc32c_short, crc0) ^ crc1;
+   562322:  216:        crc0 = crc32c_shift(crc32c_short, crc0) ^ crc2;
+   562322:  217:        next += SHORT*2;
+   562322:  218:        len -= SHORT*3;
+        -:  219:    }
+        -:  220:
+        -:  221:    /* compute the crc on the remaining eight-byte units less than a SHORT*3
+        -:  222:       block */
+        -:  223:    {
+    23949:  224:        unsigned char const * const end = next + (len - (len & 7));
+   331013:  225:        while (next < end) {
+   307064:  226:            __asm__("crc32q\t" "(%1), %0"
+        -:  227:                    : "=r"(crc0)
+        -:  228:                    : "r"(next), "0"(crc0));
+   307064:  229:            next += 8;
+        -:  230:        }
+    23949:  231:        len &= 7;
+        -:  232:    }
+        -:  233:
+        -:  234:    /* compute the crc for up to seven trailing bytes */
+    98251:  235:    while (len) {
+    74302:  236:        __asm__("crc32b\t" "(%1), %0"
+        -:  237:                : "=r"(crc0)
+        -:  238:                : "r"(next), "0"(crc0));
+    74302:  239:        next++;
+    74302:  240:        len--;
+        -:  241:    }
+        -:  242:
+        -:  243:    /* return a post-processed crc */
+    23949:  244:    return ~crc0;
+        -:  245:}
+        -:  246:
+        -:  247:/* Check for SSE 4.2.  SSE 4.2 was first supported in Nehalem processors
+        -:  248:   introduced in November, 2008.  This does not check for the existence of the
+        -:  249:   cpuid instruction itself, which was introduced on the 486SL in 1992, so this
+        -:  250:   will fail on earlier x86 processors.  cpuid works on all Pentium and later
+        -:  251:   processors. */
+        -:  252:#define SSE42(have) \
+        -:  253:    do { \
+        -:  254:        uint32_t eax, ecx; \
+        -:  255:        eax = 1; \
+        -:  256:        __asm__("cpuid" \
+        -:  257:                : "=c"(ecx) \
+        -:  258:                : "a"(eax) \
+        -:  259:                : "%ebx", "%edx"); \
+        -:  260:        (have) = (ecx >> 20) & 1; \
+        -:  261:    } while (0)
+        -:  262:
+        -:  263:/* Compute a CRC-32C.  If the crc32 instruction is available, use the hardware
+        -:  264:   version.  Otherwise, use the software version. */
+        8:  265:void crc32c_init(void) {
+        8:  266:    int sse42;
+        -:  267:
+        8:  268:    SSE42(sse42);
+        8:  269:    if (sse42) {
+        8:  270:        crc32c = crc32c_hw;
+        -:  271:    } else {
+    #####:  272:        crc32c = crc32c_sw;
+        -:  273:    }
+        8:  274:}
+        -:  275:
+        -:  276:#elif defined(__aarch64__) && defined(__linux__)
+        -:  277:#include <sys/auxv.h>
+        -:  278:
+        -:  279:#if defined(HWCAP_CRC32)
+        -:  280:static inline uint32_t crc32cx(uint32_t crc, const uint64_t data)
+        -:  281:{
+        -:  282:        asm(".arch_extension crc\n"
+        -:  283:        "crc32cx %w0, %w0, %x1" : "+r" (crc) : "r" (data));
+        -:  284:        return crc;
+        -:  285:}
+        -:  286:
+        -:  287:static inline uint32_t crc32cb(uint32_t crc, const uint8_t data)
+        -:  288:{
+        -:  289:        asm(".arch_extension crc\n"
+        -:  290:            "crc32cb %w0, %w0, %w1" : "+r" (crc) : "r" (data));
+        -:  291:        return crc;
+        -:  292:}
+        -:  293:
+        -:  294:static uint32_t crc32c_hw(uint32_t crc, void const *buf, size_t len) {
+        -:  295:    crc = ~crc;
+        -:  296:    unsigned char const *next = buf;
+        -:  297:
+        -:  298:    while (((uintptr_t)next & 7) && len > 0) {
+        -:  299:        crc = crc32cb(crc, *(uint8_t *)next);
+        -:  300:        next++;
+        -:  301:        len--;
+        -:  302:    }
+        -:  303:
+        -:  304:    while (len >= 64) {
+        -:  305:        uint64_t *next8 = (uint64_t *)next;
+        -:  306:        crc = crc32cx(crc, next8[0]);
+        -:  307:        crc = crc32cx(crc, next8[1]);
+        -:  308:        crc = crc32cx(crc, next8[2]);
+        -:  309:        crc = crc32cx(crc, next8[3]);
+        -:  310:        crc = crc32cx(crc, next8[4]);
+        -:  311:        crc = crc32cx(crc, next8[5]);
+        -:  312:        crc = crc32cx(crc, next8[6]);
+        -:  313:        crc = crc32cx(crc, next8[7]);
+        -:  314:        next += 64;
+        -:  315:        len -= 64;
+        -:  316:    }
+        -:  317:
+        -:  318:    while (len >= 8) {
+        -:  319:        crc = crc32cx(crc, *(uint64_t *)next);
+        -:  320:        next += 8;
+        -:  321:        len -= 8;
+        -:  322:    }
+        -:  323:
+        -:  324:    while (len > 0) {
+        -:  325:        crc = crc32cb(crc, *(uint8_t *)next);
+        -:  326:        next++;
+        -:  327:        len--;
+        -:  328:    }
+        -:  329:
+        -:  330:    return ~crc;
+        -:  331:}
+        -:  332:
+        -:  333:void crc32c_init(void) {
+        -:  334:    uint64_t auxv = getauxval(AT_HWCAP);
+        -:  335:
+        -:  336:    crc32c = crc32c_sw;
+        -:  337:    if (auxv & HWCAP_CRC32)
+        -:  338:        crc32c = crc32c_hw;
+        -:  339:}
+        -:  340:#else /* no hw crc32 on arm64 system supported? old compiler/libc/kernel? */
+        -:  341:void crc32c_init(void) {
+        -:  342:    crc32c = crc32c_sw;
+        -:  343:}
+        -:  344:#endif
+        -:  345:#else /* !__x86_64__i && !__aarch64__ */
+        -:  346:void crc32c_init(void) {
+        -:  347:    crc32c = crc32c_sw;
+        -:  348:}
+        -:  349:
+        -:  350:#endif
+        -:  351:
+        -:  352:/* Construct table for software CRC-32C little-endian calculation. */
+        -:  353:static pthread_once_t crc32c_once_little = PTHREAD_ONCE_INIT;
+        -:  354:static uint32_t crc32c_table_little[8][256];
+    #####:  355:static void crc32c_init_sw_little(void) {
+    #####:  356:    for (unsigned n = 0; n < 256; n++) {
+    #####:  357:        uint32_t crc = n;
+    #####:  358:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  359:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  360:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  361:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  362:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  363:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  364:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  365:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  366:        crc32c_table_little[0][n] = crc;
+        -:  367:    }
+    #####:  368:    for (unsigned n = 0; n < 256; n++) {
+    #####:  369:        uint32_t crc = crc32c_table_little[0][n];
+    #####:  370:        for (unsigned k = 1; k < 8; k++) {
+    #####:  371:            crc = crc32c_table_little[0][crc & 0xff] ^ (crc >> 8);
+    #####:  372:            crc32c_table_little[k][n] = crc;
+        -:  373:        }
+        -:  374:    }
+    #####:  375:}
+        -:  376:
+        -:  377:/* Compute a CRC-32C in software assuming a little-endian architecture,
+        -:  378:   constructing the required table if that hasn't already been done. */
+    #####:  379:uint32_t crc32c_sw_little(uint32_t crc, void const *buf, size_t len) {
+    #####:  380:    unsigned char const *next = buf;
+        -:  381:
+    #####:  382:    pthread_once(&crc32c_once_little, crc32c_init_sw_little);
+    #####:  383:    crc = ~crc;
+    #####:  384:    while (len && ((uintptr_t)next & 7) != 0) {
+    #####:  385:        crc = crc32c_table_little[0][(crc ^ *next++) & 0xff] ^ (crc >> 8);
+    #####:  386:        len--;
+        -:  387:    }
+    #####:  388:    if (len >= 8) {
+    #####:  389:        uint64_t crcw = crc;
+    #####:  390:        do {
+    #####:  391:            crcw ^= *(uint64_t const *)next;
+    #####:  392:            crcw = crc32c_table_little[7][crcw & 0xff] ^
+    #####:  393:                   crc32c_table_little[6][(crcw >> 8) & 0xff] ^
+    #####:  394:                   crc32c_table_little[5][(crcw >> 16) & 0xff] ^
+    #####:  395:                   crc32c_table_little[4][(crcw >> 24) & 0xff] ^
+    #####:  396:                   crc32c_table_little[3][(crcw >> 32) & 0xff] ^
+    #####:  397:                   crc32c_table_little[2][(crcw >> 40) & 0xff] ^
+    #####:  398:                   crc32c_table_little[1][(crcw >> 48) & 0xff] ^
+    #####:  399:                   crc32c_table_little[0][crcw >> 56];
+    #####:  400:            next += 8;
+    #####:  401:            len -= 8;
+    #####:  402:        } while (len >= 8);
+        -:  403:        crc = crcw;
+        -:  404:    }
+    #####:  405:    while (len) {
+    #####:  406:        crc = crc32c_table_little[0][(crc ^ *next++) & 0xff] ^ (crc >> 8);
+    #####:  407:        len--;
+        -:  408:    }
+    #####:  409:    return ~crc;
+        -:  410:}
+        -:  411:
+        -:  412:/* Swap the bytes in a uint64_t.  (Only for big-endian.) */
+        -:  413:#if defined(__has_builtin) || (defined(__GNUC__) && \
+        -:  414:    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)))
+        -:  415:#  define swap __builtin_bswap64
+        -:  416:#else
+        -:  417:static inline uint64_t swap(uint64_t x) {
+        -:  418:    x = ((x << 8) & 0xff00ff00ff00ff00) | ((x >> 8) & 0xff00ff00ff00ff);
+        -:  419:    x = ((x << 16) & 0xffff0000ffff0000) | ((x >> 16) & 0xffff0000ffff);
+        -:  420:    return (x << 32) | (x >> 32);
+        -:  421:}
+        -:  422:#endif
+        -:  423:
+        -:  424:/* Construct tables for software CRC-32C big-endian calculation. */
+        -:  425:static pthread_once_t crc32c_once_big = PTHREAD_ONCE_INIT;
+        -:  426:static uint32_t crc32c_table_big_byte[256];
+        -:  427:static uint64_t crc32c_table_big[8][256];
+    #####:  428:static void crc32c_init_sw_big(void) {
+    #####:  429:    for (unsigned n = 0; n < 256; n++) {
+    #####:  430:        uint32_t crc = n;
+    #####:  431:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  432:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  433:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  434:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  435:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  436:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  437:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  438:        crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
+    #####:  439:        crc32c_table_big_byte[n] = crc;
+        -:  440:    }
+    #####:  441:    for (unsigned n = 0; n < 256; n++) {
+    #####:  442:        uint32_t crc = crc32c_table_big_byte[n];
+    #####:  443:        crc32c_table_big[0][n] = swap(crc);
+    #####:  444:        for (unsigned k = 1; k < 8; k++) {
+    #####:  445:            crc = crc32c_table_big_byte[crc & 0xff] ^ (crc >> 8);
+    #####:  446:            crc32c_table_big[k][n] = swap(crc);
+        -:  447:        }
+        -:  448:    }
+    #####:  449:}
+        -:  450:
+        -:  451:/* Compute a CRC-32C in software assuming a big-endian architecture,
+        -:  452:   constructing the required tables if that hasn't already been done. */
+    #####:  453:uint32_t crc32c_sw_big(uint32_t crc, void const *buf, size_t len) {
+    #####:  454:    unsigned char const *next = buf;
+        -:  455:
+    #####:  456:    pthread_once(&crc32c_once_big, crc32c_init_sw_big);
+    #####:  457:    crc = ~crc;
+    #####:  458:    while (len && ((uintptr_t)next & 7) != 0) {
+    #####:  459:        crc = crc32c_table_big_byte[(crc ^ *next++) & 0xff] ^ (crc >> 8);
+    #####:  460:        len--;
+        -:  461:    }
+    #####:  462:    if (len >= 8) {
+    #####:  463:        uint64_t crcw = swap(crc);
+    #####:  464:        do {
+    #####:  465:            crcw ^= *(uint64_t const *)next;
+    #####:  466:            crcw = crc32c_table_big[0][crcw & 0xff] ^
+    #####:  467:                   crc32c_table_big[1][(crcw >> 8) & 0xff] ^
+    #####:  468:                   crc32c_table_big[2][(crcw >> 16) & 0xff] ^
+    #####:  469:                   crc32c_table_big[3][(crcw >> 24) & 0xff] ^
+    #####:  470:                   crc32c_table_big[4][(crcw >> 32) & 0xff] ^
+    #####:  471:                   crc32c_table_big[5][(crcw >> 40) & 0xff] ^
+    #####:  472:                   crc32c_table_big[6][(crcw >> 48) & 0xff] ^
+    #####:  473:                   crc32c_table_big[7][(crcw >> 56)];
+    #####:  474:            next += 8;
+    #####:  475:            len -= 8;
+    #####:  476:        } while (len >= 8);
+    #####:  477:        crc = swap(crcw);
+        -:  478:    }
+    #####:  479:    while (len) {
+    #####:  480:        crc = crc32c_table_big_byte[(crc ^ *next++) & 0xff] ^ (crc >> 8);
+    #####:  481:        len--;
+        -:  482:    }
+    #####:  483:    return ~crc;
+        -:  484:}
+        -:  485:
+        -:  486:/* Table-driven software CRC-32C.  This is about 15 times slower than using the
+        -:  487:   hardware instructions.  Determine the endianess of the processor and proceed
+        -:  488:   accordingly.  Ideally the endianess will be determined at compile time, in
+        -:  489:   which case the unused functions and tables for the other endianess will be
+        -:  490:   removed by the optimizer.  If not, then the proper routines and tables will
+        -:  491:   be used, even if the endianess is changed mid-stream.  (Yes, there are
+        -:  492:   processors that permit that -- go figure.) */
+    #####:  493:uint32_t crc32c_sw(uint32_t crc, void const *buf, size_t len) {
+    #####:  494:    static int const little = 1;
+    #####:  495:    if (*(char const *)&little)
+    #####:  496:        return crc32c_sw_little(crc, buf, len);
+        -:  497:    else
+        -:  498:        return crc32c_sw_big(crc, buf, len);
+        -:  499:}

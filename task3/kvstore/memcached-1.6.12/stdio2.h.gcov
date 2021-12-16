@@ -1,0 +1,403 @@
+        -:    0:Source:/nix/store/7rfaw11na5ajdgwr55ffzwfibbrdpk8z-glibc-2.33-56-dev/include/bits/stdio2.h
+        -:    0:Graph:util.gcno
+        -:    0:Data:util.gcda
+        -:    0:Runs:396
+        -:    1:/* Checking macros for stdio functions.
+        -:    2:   Copyright (C) 2004-2021 Free Software Foundation, Inc.
+        -:    3:   This file is part of the GNU C Library.
+        -:    4:
+        -:    5:   The GNU C Library is free software; you can redistribute it and/or
+        -:    6:   modify it under the terms of the GNU Lesser General Public
+        -:    7:   License as published by the Free Software Foundation; either
+        -:    8:   version 2.1 of the License, or (at your option) any later version.
+        -:    9:
+        -:   10:   The GNU C Library is distributed in the hope that it will be useful,
+        -:   11:   but WITHOUT ANY WARRANTY; without even the implied warranty of
+        -:   12:   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        -:   13:   Lesser General Public License for more details.
+        -:   14:
+        -:   15:   You should have received a copy of the GNU Lesser General Public
+        -:   16:   License along with the GNU C Library; if not, see
+        -:   17:   <https://www.gnu.org/licenses/>.  */
+        -:   18:
+        -:   19:#ifndef _BITS_STDIO2_H
+        -:   20:#define _BITS_STDIO2_H 1
+        -:   21:
+        -:   22:#ifndef _STDIO_H
+        -:   23:# error "Never include <bits/stdio2.h> directly; use <stdio.h> instead."
+        -:   24:#endif
+        -:   25:
+        -:   26:extern int __sprintf_chk (char *__restrict __s, int __flag, size_t __slen,
+        -:   27:			  const char *__restrict __format, ...) __THROW
+        -:   28:    __attr_access ((__write_only__, 1, 3));
+        -:   29:extern int __vsprintf_chk (char *__restrict __s, int __flag, size_t __slen,
+        -:   30:			   const char *__restrict __format,
+        -:   31:			   __gnuc_va_list __ap) __THROW
+        -:   32:    __attr_access ((__write_only__, 1, 3));
+        -:   33:
+        -:   34:#ifdef __va_arg_pack
+        -:   35:__fortify_function int
+        -:   36:__NTH (sprintf (char *__restrict __s, const char *__restrict __fmt, ...))
+        -:   37:{
+        -:   38:  return __builtin___sprintf_chk (__s, __USE_FORTIFY_LEVEL - 1,
+        -:   39:				  __glibc_objsize (__s), __fmt,
+        -:   40:				  __va_arg_pack ());
+        -:   41:}
+        -:   42:#elif !defined __cplusplus
+        -:   43:# define sprintf(str, ...) \
+        -:   44:  __builtin___sprintf_chk (str, __USE_FORTIFY_LEVEL - 1,		      \
+        -:   45:			   __glibc_objsize (str), __VA_ARGS__)
+        -:   46:#endif
+        -:   47:
+        -:   48:__fortify_function int
+        -:   49:__NTH (vsprintf (char *__restrict __s, const char *__restrict __fmt,
+        -:   50:		 __gnuc_va_list __ap))
+        -:   51:{
+        -:   52:  return __builtin___vsprintf_chk (__s, __USE_FORTIFY_LEVEL - 1,
+        -:   53:				   __glibc_objsize (__s), __fmt, __ap);
+        -:   54:}
+        -:   55:
+        -:   56:#if defined __USE_ISOC99 || defined __USE_UNIX98
+        -:   57:
+        -:   58:extern int __snprintf_chk (char *__restrict __s, size_t __n, int __flag,
+        -:   59:			   size_t __slen, const char *__restrict __format,
+        -:   60:			   ...) __THROW
+        -:   61:    __attr_access ((__write_only__, 1, 2));
+        -:   62:extern int __vsnprintf_chk (char *__restrict __s, size_t __n, int __flag,
+        -:   63:			    size_t __slen, const char *__restrict __format,
+        -:   64:			    __gnuc_va_list __ap) __THROW;
+        -:   65:
+        -:   66:# ifdef __va_arg_pack
+        -:   67:__fortify_function int
+        -:   68:__NTH (snprintf (char *__restrict __s, size_t __n,
+        -:   69:		 const char *__restrict __fmt, ...))
+        -:   70:{
+    21660:   71:  return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+        -:   72:				   __glibc_objsize (__s), __fmt,
+        -:   73:				   __va_arg_pack ());
+        -:   74:}
+        -:   75:# elif !defined __cplusplus
+        -:   76:#  define snprintf(str, len, ...) \
+        -:   77:  __builtin___snprintf_chk (str, len, __USE_FORTIFY_LEVEL - 1,		      \
+        -:   78:			    __glibc_objsize (str), __VA_ARGS__)
+        -:   79:# endif
+        -:   80:
+        -:   81:__fortify_function int
+        -:   82:__NTH (vsnprintf (char *__restrict __s, size_t __n,
+        -:   83:		  const char *__restrict __fmt, __gnuc_va_list __ap))
+        -:   84:{
+        2:   85:  return __builtin___vsnprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+        -:   86:				    __glibc_objsize (__s), __fmt, __ap);
+        -:   87:}
+        -:   88:
+        -:   89:#endif
+        -:   90:
+        -:   91:#if __USE_FORTIFY_LEVEL > 1
+        -:   92:
+        -:   93:extern int __fprintf_chk (FILE *__restrict __stream, int __flag,
+        -:   94:			  const char *__restrict __format, ...);
+        -:   95:extern int __printf_chk (int __flag, const char *__restrict __format, ...);
+        -:   96:extern int __vfprintf_chk (FILE *__restrict __stream, int __flag,
+        -:   97:			   const char *__restrict __format, __gnuc_va_list __ap);
+        -:   98:extern int __vprintf_chk (int __flag, const char *__restrict __format,
+        -:   99:			  __gnuc_va_list __ap);
+        -:  100:
+        -:  101:# ifdef __va_arg_pack
+        -:  102:__fortify_function int
+        -:  103:fprintf (FILE *__restrict __stream, const char *__restrict __fmt, ...)
+        -:  104:{
+        -:  105:  return __fprintf_chk (__stream, __USE_FORTIFY_LEVEL - 1, __fmt,
+        -:  106:			__va_arg_pack ());
+        -:  107:}
+        -:  108:
+        -:  109:__fortify_function int
+        -:  110:printf (const char *__restrict __fmt, ...)
+        -:  111:{
+        -:  112:  return __printf_chk (__USE_FORTIFY_LEVEL - 1, __fmt, __va_arg_pack ());
+        -:  113:}
+        -:  114:# elif !defined __cplusplus
+        -:  115:#  define printf(...) \
+        -:  116:  __printf_chk (__USE_FORTIFY_LEVEL - 1, __VA_ARGS__)
+        -:  117:#  define fprintf(stream, ...) \
+        -:  118:  __fprintf_chk (stream, __USE_FORTIFY_LEVEL - 1, __VA_ARGS__)
+        -:  119:# endif
+        -:  120:
+        -:  121:__fortify_function int
+        -:  122:vprintf (const char *__restrict __fmt, __gnuc_va_list __ap)
+        -:  123:{
+        -:  124:#ifdef __USE_EXTERN_INLINES
+        -:  125:  return __vfprintf_chk (stdout, __USE_FORTIFY_LEVEL - 1, __fmt, __ap);
+        -:  126:#else
+        -:  127:  return __vprintf_chk (__USE_FORTIFY_LEVEL - 1, __fmt, __ap);
+        -:  128:#endif
+        -:  129:}
+        -:  130:
+        -:  131:__fortify_function int
+        -:  132:vfprintf (FILE *__restrict __stream,
+        -:  133:	  const char *__restrict __fmt, __gnuc_va_list __ap)
+        -:  134:{
+        -:  135:  return __vfprintf_chk (__stream, __USE_FORTIFY_LEVEL - 1, __fmt, __ap);
+        -:  136:}
+        -:  137:
+        -:  138:# ifdef __USE_XOPEN2K8
+        -:  139:extern int __dprintf_chk (int __fd, int __flag, const char *__restrict __fmt,
+        -:  140:			  ...) __attribute__ ((__format__ (__printf__, 3, 4)));
+        -:  141:extern int __vdprintf_chk (int __fd, int __flag,
+        -:  142:			   const char *__restrict __fmt, __gnuc_va_list __arg)
+        -:  143:     __attribute__ ((__format__ (__printf__, 3, 0)));
+        -:  144:
+        -:  145:#  ifdef __va_arg_pack
+        -:  146:__fortify_function int
+        -:  147:dprintf (int __fd, const char *__restrict __fmt, ...)
+        -:  148:{
+        -:  149:  return __dprintf_chk (__fd, __USE_FORTIFY_LEVEL - 1, __fmt,
+        -:  150:			__va_arg_pack ());
+        -:  151:}
+        -:  152:#  elif !defined __cplusplus
+        -:  153:#   define dprintf(fd, ...) \
+        -:  154:  __dprintf_chk (fd, __USE_FORTIFY_LEVEL - 1, __VA_ARGS__)
+        -:  155:#  endif
+        -:  156:
+        -:  157:__fortify_function int
+        -:  158:vdprintf (int __fd, const char *__restrict __fmt, __gnuc_va_list __ap)
+        -:  159:{
+        -:  160:  return __vdprintf_chk (__fd, __USE_FORTIFY_LEVEL - 1, __fmt, __ap);
+        -:  161:}
+        -:  162:# endif
+        -:  163:
+        -:  164:# ifdef __USE_GNU
+        -:  165:
+        -:  166:extern int __asprintf_chk (char **__restrict __ptr, int __flag,
+        -:  167:			   const char *__restrict __fmt, ...)
+        -:  168:     __THROW __attribute__ ((__format__ (__printf__, 3, 4))) __wur;
+        -:  169:extern int __vasprintf_chk (char **__restrict __ptr, int __flag,
+        -:  170:			    const char *__restrict __fmt, __gnuc_va_list __arg)
+        -:  171:     __THROW __attribute__ ((__format__ (__printf__, 3, 0))) __wur;
+        -:  172:extern int __obstack_printf_chk (struct obstack *__restrict __obstack,
+        -:  173:				 int __flag, const char *__restrict __format,
+        -:  174:				 ...)
+        -:  175:     __THROW __attribute__ ((__format__ (__printf__, 3, 4)));
+        -:  176:extern int __obstack_vprintf_chk (struct obstack *__restrict __obstack,
+        -:  177:				  int __flag,
+        -:  178:				  const char *__restrict __format,
+        -:  179:				  __gnuc_va_list __args)
+        -:  180:     __THROW __attribute__ ((__format__ (__printf__, 3, 0)));
+        -:  181:
+        -:  182:#  ifdef __va_arg_pack
+        -:  183:__fortify_function int
+        -:  184:__NTH (asprintf (char **__restrict __ptr, const char *__restrict __fmt, ...))
+        -:  185:{
+        -:  186:  return __asprintf_chk (__ptr, __USE_FORTIFY_LEVEL - 1, __fmt,
+        -:  187:			 __va_arg_pack ());
+        -:  188:}
+        -:  189:
+        -:  190:__fortify_function int
+        -:  191:__NTH (__asprintf (char **__restrict __ptr, const char *__restrict __fmt,
+        -:  192:		   ...))
+        -:  193:{
+        -:  194:  return __asprintf_chk (__ptr, __USE_FORTIFY_LEVEL - 1, __fmt,
+        -:  195:			 __va_arg_pack ());
+        -:  196:}
+        -:  197:
+        -:  198:__fortify_function int
+        -:  199:__NTH (obstack_printf (struct obstack *__restrict __obstack,
+        -:  200:		       const char *__restrict __fmt, ...))
+        -:  201:{
+        -:  202:  return __obstack_printf_chk (__obstack, __USE_FORTIFY_LEVEL - 1, __fmt,
+        -:  203:			       __va_arg_pack ());
+        -:  204:}
+        -:  205:#  elif !defined __cplusplus
+        -:  206:#   define asprintf(ptr, ...) \
+        -:  207:  __asprintf_chk (ptr, __USE_FORTIFY_LEVEL - 1, __VA_ARGS__)
+        -:  208:#   define __asprintf(ptr, ...) \
+        -:  209:  __asprintf_chk (ptr, __USE_FORTIFY_LEVEL - 1, __VA_ARGS__)
+        -:  210:#   define obstack_printf(obstack, ...) \
+        -:  211:  __obstack_printf_chk (obstack, __USE_FORTIFY_LEVEL - 1, __VA_ARGS__)
+        -:  212:#  endif
+        -:  213:
+        -:  214:__fortify_function int
+        -:  215:__NTH (vasprintf (char **__restrict __ptr, const char *__restrict __fmt,
+        -:  216:		  __gnuc_va_list __ap))
+        -:  217:{
+        -:  218:  return __vasprintf_chk (__ptr, __USE_FORTIFY_LEVEL - 1, __fmt, __ap);
+        -:  219:}
+        -:  220:
+        -:  221:__fortify_function int
+        -:  222:__NTH (obstack_vprintf (struct obstack *__restrict __obstack,
+        -:  223:			const char *__restrict __fmt, __gnuc_va_list __ap))
+        -:  224:{
+        -:  225:  return __obstack_vprintf_chk (__obstack, __USE_FORTIFY_LEVEL - 1, __fmt,
+        -:  226:				__ap);
+        -:  227:}
+        -:  228:
+        -:  229:# endif
+        -:  230:
+        -:  231:#endif
+        -:  232:
+        -:  233:#if __GLIBC_USE (DEPRECATED_GETS)
+        -:  234:extern char *__gets_chk (char *__str, size_t) __wur;
+        -:  235:extern char *__REDIRECT (__gets_warn, (char *__str), gets)
+        -:  236:     __wur __warnattr ("please use fgets or getline instead, gets can't "
+        -:  237:		       "specify buffer size");
+        -:  238:
+        -:  239:__fortify_function __wur char *
+        -:  240:gets (char *__str)
+        -:  241:{
+        -:  242:  if (__glibc_objsize (__str) != (size_t) -1)
+        -:  243:    return __gets_chk (__str, __glibc_objsize (__str));
+        -:  244:  return __gets_warn (__str);
+        -:  245:}
+        -:  246:#endif
+        -:  247:
+        -:  248:extern char *__fgets_chk (char *__restrict __s, size_t __size, int __n,
+        -:  249:			  FILE *__restrict __stream)
+        -:  250:    __wur __attr_access ((__write_only__, 1, 3));
+        -:  251:extern char *__REDIRECT (__fgets_alias,
+        -:  252:			 (char *__restrict __s, int __n,
+        -:  253:			  FILE *__restrict __stream), fgets)
+        -:  254:    __wur __attr_access ((__write_only__, 1, 2));
+        -:  255:extern char *__REDIRECT (__fgets_chk_warn,
+        -:  256:			 (char *__restrict __s, size_t __size, int __n,
+        -:  257:			  FILE *__restrict __stream), __fgets_chk)
+        -:  258:     __wur __warnattr ("fgets called with bigger size than length "
+        -:  259:		       "of destination buffer");
+        -:  260:
+        -:  261:__fortify_function __wur __attr_access ((__write_only__, 1, 2)) char *
+        -:  262:fgets (char *__restrict __s, int __n, FILE *__restrict __stream)
+        -:  263:{
+        -:  264:  if (__glibc_objsize (__s) != (size_t) -1)
+        -:  265:    {
+        -:  266:      if (!__builtin_constant_p (__n) || __n <= 0)
+        -:  267:	return __fgets_chk (__s, __glibc_objsize (__s), __n, __stream);
+        -:  268:
+        -:  269:      if ((size_t) __n > __glibc_objsize (__s))
+        -:  270:	return __fgets_chk_warn (__s, __glibc_objsize (__s), __n, __stream);
+        -:  271:    }
+        -:  272:  return __fgets_alias (__s, __n, __stream);
+        -:  273:}
+        -:  274:
+        -:  275:extern size_t __fread_chk (void *__restrict __ptr, size_t __ptrlen,
+        -:  276:			   size_t __size, size_t __n,
+        -:  277:			   FILE *__restrict __stream) __wur;
+        -:  278:extern size_t __REDIRECT (__fread_alias,
+        -:  279:			  (void *__restrict __ptr, size_t __size,
+        -:  280:			   size_t __n, FILE *__restrict __stream),
+        -:  281:			  fread) __wur;
+        -:  282:extern size_t __REDIRECT (__fread_chk_warn,
+        -:  283:			  (void *__restrict __ptr, size_t __ptrlen,
+        -:  284:			   size_t __size, size_t __n,
+        -:  285:			   FILE *__restrict __stream),
+        -:  286:			  __fread_chk)
+        -:  287:     __wur __warnattr ("fread called with bigger size * nmemb than length "
+        -:  288:		       "of destination buffer");
+        -:  289:
+        -:  290:__fortify_function __wur size_t
+        -:  291:fread (void *__restrict __ptr, size_t __size, size_t __n,
+        -:  292:       FILE *__restrict __stream)
+        -:  293:{
+        -:  294:  if (__glibc_objsize0 (__ptr) != (size_t) -1)
+        -:  295:    {
+        -:  296:      if (!__builtin_constant_p (__size)
+        -:  297:	  || !__builtin_constant_p (__n)
+        -:  298:	  || (__size | __n) >= (((size_t) 1) << (8 * sizeof (size_t) / 2)))
+        -:  299:	return __fread_chk (__ptr, __glibc_objsize0 (__ptr), __size, __n,
+        -:  300:			    __stream);
+        -:  301:
+        -:  302:      if (__size * __n > __glibc_objsize0 (__ptr))
+        -:  303:	return __fread_chk_warn (__ptr, __glibc_objsize0 (__ptr), __size, __n,
+        -:  304:				 __stream);
+        -:  305:    }
+        -:  306:  return __fread_alias (__ptr, __size, __n, __stream);
+        -:  307:}
+        -:  308:
+        -:  309:#ifdef __USE_GNU
+        -:  310:extern char *__fgets_unlocked_chk (char *__restrict __s, size_t __size,
+        -:  311:				   int __n, FILE *__restrict __stream)
+        -:  312:    __wur __attr_access ((__write_only__, 1, 3));
+        -:  313:extern char *__REDIRECT (__fgets_unlocked_alias,
+        -:  314:			 (char *__restrict __s, int __n,
+        -:  315:			  FILE *__restrict __stream), fgets_unlocked)
+        -:  316:    __wur __attr_access ((__write_only__, 1, 2));
+        -:  317:extern char *__REDIRECT (__fgets_unlocked_chk_warn,
+        -:  318:			 (char *__restrict __s, size_t __size, int __n,
+        -:  319:			  FILE *__restrict __stream), __fgets_unlocked_chk)
+        -:  320:     __wur __warnattr ("fgets_unlocked called with bigger size than length "
+        -:  321:		       "of destination buffer");
+        -:  322:
+        -:  323:__fortify_function __wur __attr_access ((__write_only__, 1, 2)) char *
+        -:  324:fgets_unlocked (char *__restrict __s, int __n, FILE *__restrict __stream)
+        -:  325:{
+        -:  326:  if (__glibc_objsize (__s) != (size_t) -1)
+        -:  327:    {
+        -:  328:      if (!__builtin_constant_p (__n) || __n <= 0)
+        -:  329:	return __fgets_unlocked_chk (__s, __glibc_objsize (__s), __n,
+        -:  330:				     __stream);
+        -:  331:
+        -:  332:      if ((size_t) __n > __glibc_objsize (__s))
+        -:  333:	return __fgets_unlocked_chk_warn (__s, __glibc_objsize (__s), __n,
+        -:  334:					  __stream);
+        -:  335:    }
+        -:  336:  return __fgets_unlocked_alias (__s, __n, __stream);
+        -:  337:}
+        -:  338:#endif
+        -:  339:
+        -:  340:#ifdef __USE_MISC
+        -:  341:# undef fread_unlocked
+        -:  342:extern size_t __fread_unlocked_chk (void *__restrict __ptr, size_t __ptrlen,
+        -:  343:				    size_t __size, size_t __n,
+        -:  344:				    FILE *__restrict __stream) __wur;
+        -:  345:extern size_t __REDIRECT (__fread_unlocked_alias,
+        -:  346:			  (void *__restrict __ptr, size_t __size,
+        -:  347:			   size_t __n, FILE *__restrict __stream),
+        -:  348:			  fread_unlocked) __wur;
+        -:  349:extern size_t __REDIRECT (__fread_unlocked_chk_warn,
+        -:  350:			  (void *__restrict __ptr, size_t __ptrlen,
+        -:  351:			   size_t __size, size_t __n,
+        -:  352:			   FILE *__restrict __stream),
+        -:  353:			  __fread_unlocked_chk)
+        -:  354:     __wur __warnattr ("fread_unlocked called with bigger size * nmemb than "
+        -:  355:		       "length of destination buffer");
+        -:  356:
+        -:  357:__fortify_function __wur size_t
+        -:  358:fread_unlocked (void *__restrict __ptr, size_t __size, size_t __n,
+        -:  359:		FILE *__restrict __stream)
+        -:  360:{
+        -:  361:  if (__glibc_objsize0 (__ptr) != (size_t) -1)
+        -:  362:    {
+        -:  363:      if (!__builtin_constant_p (__size)
+        -:  364:	  || !__builtin_constant_p (__n)
+        -:  365:	  || (__size | __n) >= (((size_t) 1) << (8 * sizeof (size_t) / 2)))
+        -:  366:	return __fread_unlocked_chk (__ptr, __glibc_objsize0 (__ptr), __size,
+        -:  367:				     __n, __stream);
+        -:  368:
+        -:  369:      if (__size * __n > __glibc_objsize0 (__ptr))
+        -:  370:	return __fread_unlocked_chk_warn (__ptr, __glibc_objsize0 (__ptr),
+        -:  371:					  __size, __n, __stream);
+        -:  372:    }
+        -:  373:
+        -:  374:# ifdef __USE_EXTERN_INLINES
+        -:  375:  if (__builtin_constant_p (__size)
+        -:  376:      && __builtin_constant_p (__n)
+        -:  377:      && (__size | __n) < (((size_t) 1) << (8 * sizeof (size_t) / 2))
+        -:  378:      && __size * __n <= 8)
+        -:  379:    {
+        -:  380:      size_t __cnt = __size * __n;
+        -:  381:      char *__cptr = (char *) __ptr;
+        -:  382:      if (__cnt == 0)
+        -:  383:	return 0;
+        -:  384:
+        -:  385:      for (; __cnt > 0; --__cnt)
+        -:  386:	{
+        -:  387:	  int __c = getc_unlocked (__stream);
+        -:  388:	  if (__c == EOF)
+        -:  389:	    break;
+        -:  390:	  *__cptr++ = __c;
+        -:  391:	}
+        -:  392:      return (__cptr - (char *) __ptr) / __size;
+        -:  393:    }
+        -:  394:# endif
+        -:  395:  return __fread_unlocked_alias (__ptr, __size, __n, __stream);
+        -:  396:}
+        -:  397:#endif
+        -:  398:
+        -:  399:#endif /* bits/stdio2.h.  */
