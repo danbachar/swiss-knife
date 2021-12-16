@@ -1,0 +1,924 @@
+        -:    0:Source:logger.c
+        -:    0:Graph:logger.gcno
+        -:    0:Data:logger.gcda
+        -:    0:Runs:396
+        -:    1:/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+        -:    2:
+        -:    3:#include <arpa/inet.h>
+        -:    4:#include <stdlib.h>
+        -:    5:#include <stdio.h>
+        -:    6:#include <string.h>
+        -:    7:#include <errno.h>
+        -:    8:#include <poll.h>
+        -:    9:#include <ctype.h>
+        -:   10:#include <stdarg.h>
+        -:   11:
+        -:   12:#if defined(__sun)
+        -:   13:#include <atomic.h>
+        -:   14:#endif
+        -:   15:
+        -:   16:#include "memcached.h"
+        -:   17:#include "bipbuffer.h"
+        -:   18:
+        -:   19:#ifdef LOGGER_DEBUG
+        -:   20:#define L_DEBUG(...) \
+        -:   21:    do { \
+        -:   22:        fprintf(stderr, __VA_ARGS__); \
+        -:   23:    } while (0)
+        -:   24:#else
+        -:   25:#define L_DEBUG(...)
+        -:   26:#endif
+        -:   27:
+        -:   28:
+        -:   29:/* TODO: put this in a struct and ditch the global vars. */
+        -:   30:static logger *logger_stack_head = NULL;
+        -:   31:static logger *logger_stack_tail = NULL;
+        -:   32:static unsigned int logger_count = 0;
+        -:   33:static volatile int do_run_logger_thread = 1;
+        -:   34:static pthread_t logger_tid;
+        -:   35:pthread_mutex_t logger_stack_lock = PTHREAD_MUTEX_INITIALIZER;
+        -:   36:pthread_cond_t logger_stack_cond = PTHREAD_COND_INITIALIZER;
+        -:   37:
+        -:   38:pthread_key_t logger_key;
+        -:   39:
+        -:   40:#if !defined(HAVE_GCC_64ATOMICS) && !defined(__sun)
+        -:   41:pthread_mutex_t logger_atomics_mutex = PTHREAD_MUTEX_INITIALIZER;
+        -:   42:#endif
+        -:   43:
+        -:   44:#define WATCHER_LIMIT 20
+        -:   45:logger_watcher *watchers[20];
+        -:   46:struct pollfd watchers_pollfds[20];
+        -:   47:int watcher_count = 0;
+        -:   48:
+        -:   49:#define WATCHER_ALL -1
+        -:   50:static int logger_thread_poll_watchers(int force_poll, int watcher);
+        -:   51:
+        -:   52:/* helpers for logger_log */
+        -:   53:
+    #####:   54:static void _logger_log_text(logentry *e, const entry_details *d, const void *entry, va_list ap) {
+    #####:   55:    int reqlen = d->reqlen;
+    #####:   56:    int total = vsnprintf((char *) e->data, reqlen, d->format, ap);
+    #####:   57:    if (total >= reqlen || total <= 0) {
+    #####:   58:        fprintf(stderr, "LOGGER: Failed to vsnprintf a text entry: (total) %d\n", total);
+        -:   59:    }
+    #####:   60:    e->size = total + 1; // null byte
+    #####:   61:}
+        -:   62:
+        1:   63:static void _logger_log_evictions(logentry *e, const entry_details *d, const void *entry, va_list ap) {
+        1:   64:    item *it = (item *)entry;
+        1:   65:    struct logentry_eviction *le = (struct logentry_eviction *) e->data;
+        -:   66:
+       1*:   67:    le->exptime = (it->exptime > 0) ? (long long int)(it->exptime - current_time) : (long long int) -1;
+        1:   68:    le->latime = current_time - it->time;
+        1:   69:    le->it_flags = it->it_flags;
+        1:   70:    le->nkey = it->nkey;
+        1:   71:    le->nbytes = it->nbytes;
+        1:   72:    le->clsid = ITEM_clsid(it);
+        1:   73:    memcpy(le->key, ITEM_key(it), it->nkey);
+        1:   74:    e->size = sizeof(struct logentry_eviction) + le->nkey;
+        1:   75:}
+        -:   76:#ifdef EXTSTORE
+    #####:   77:static void _logger_log_ext_write(logentry *e, const entry_details *d, const void *entry, va_list ap) {
+    #####:   78:    item *it = (item *)entry;
+    #####:   79:    int ew_bucket = va_arg(ap, int);
+        -:   80:
+    #####:   81:    struct logentry_ext_write *le = (struct logentry_ext_write *) e->data;
+    #####:   82:    le->exptime = (it->exptime > 0) ? (long long int)(it->exptime - current_time) : (long long int) -1;
+    #####:   83:    le->latime = current_time - it->time;
+    #####:   84:    le->it_flags = it->it_flags;
+    #####:   85:    le->nkey = it->nkey;
+    #####:   86:    le->clsid = ITEM_clsid(it);
+    #####:   87:    le->bucket = (uint8_t)ew_bucket;
+    #####:   88:    memcpy(le->key, ITEM_key(it), it->nkey);
+    #####:   89:    e->size = sizeof(struct logentry_ext_write) + le->nkey;
+    #####:   90:}
+        -:   91:#endif
+        -:   92:// 0 == nf, 1 == found. 2 == flushed. 3 == expired.
+        -:   93:// might be useful to store/print the flags an item has?
+        -:   94:// could also collapse this and above code into an "item status" struct. wait
+        -:   95:// for more endpoints to be written before making it generic, though.
+    81095:   96:static void _logger_log_item_get(logentry *e, const entry_details *d, const void *entry, va_list ap) {
+    81095:   97:    int was_found = va_arg(ap, int);
+    81095:   98:    char *key = va_arg(ap, char *);
+    81095:   99:    size_t nkey = va_arg(ap, size_t);
+    81095:  100:    int nbytes = va_arg(ap, int);
+    81095:  101:    uint8_t clsid = va_arg(ap, int);
+    81095:  102:    int sfd = va_arg(ap, int);
+        -:  103:
+    81095:  104:    struct logentry_item_get *le = (struct logentry_item_get *) e->data;
+    81095:  105:    le->was_found = was_found;
+    81095:  106:    le->nkey = nkey;
+    81095:  107:    le->nbytes = nbytes;
+    81095:  108:    le->clsid = clsid;
+    81095:  109:    memcpy(le->key, key, nkey);
+    81095:  110:    le->sfd = sfd;
+    81095:  111:    e->size = sizeof(struct logentry_item_get) + nkey;
+    81095:  112:}
+        -:  113:
+        4:  114:static void _logger_log_item_store(logentry *e, const entry_details *d, const void *entry, va_list ap) {
+        4:  115:    enum store_item_type status = va_arg(ap, enum store_item_type);
+        4:  116:    int comm = va_arg(ap, int);
+        4:  117:    char *key = va_arg(ap, char *);
+        4:  118:    size_t nkey = va_arg(ap, size_t);
+        4:  119:    int nbytes = va_arg(ap, int);
+        4:  120:    rel_time_t ttl = va_arg(ap, rel_time_t);
+        4:  121:    uint8_t clsid = va_arg(ap, int);
+        4:  122:    int sfd = va_arg(ap, int);
+        -:  123:
+        4:  124:    struct logentry_item_store *le = (struct logentry_item_store *) e->data;
+        4:  125:    le->status = status;
+        4:  126:    le->cmd = comm;
+        4:  127:    le->nkey = nkey;
+        4:  128:    le->nbytes = nbytes;
+        4:  129:    le->clsid = clsid;
+        4:  130:    if (ttl != 0) {
+    #####:  131:        le->ttl = ttl - current_time;
+        -:  132:    } else {
+        4:  133:        le->ttl = 0;
+        -:  134:    }
+        4:  135:    memcpy(le->key, key, nkey);
+        4:  136:    le->sfd = sfd;
+        4:  137:    e->size = sizeof(struct logentry_item_store) + nkey;
+        4:  138:}
+        -:  139:
+        6:  140:static void _logger_log_conn_event(logentry *e, const entry_details *d, const void *entry, va_list ap) {
+        6:  141:    struct sockaddr_in6 *addr = va_arg(ap, struct sockaddr_in6 *);
+        6:  142:    socklen_t addrlen = va_arg(ap, socklen_t);
+        6:  143:    enum network_transport transport = va_arg(ap, enum network_transport);
+        6:  144:    enum close_reasons reason = va_arg(ap, enum close_reasons);
+        6:  145:    int sfd = va_arg(ap, int);
+        -:  146:
+        6:  147:    struct logentry_conn_event *le = (struct logentry_conn_event *) e->data;
+        -:  148:
+        6:  149:    memcpy(&le->addr, addr, addrlen);
+        6:  150:    le->sfd = sfd;
+        6:  151:    le->transport = transport;
+        6:  152:    le->reason = reason;
+        6:  153:    e->size = sizeof(struct logentry_conn_event);
+        6:  154:}
+        -:  155:
+        -:  156:/*************************
+        -:  157: * Util functions used by the logger background thread
+        -:  158: *************************/
+        -:  159:
+        5:  160:static int _logger_util_addr_endpoint(struct sockaddr_in6 *addr, char *rip,
+        -:  161:        size_t riplen, unsigned short *rport) {
+        5:  162:    memset(rip, 0, riplen);
+        -:  163:
+        5:  164:    switch (addr->sin6_family) {
+    #####:  165:        case AF_INET:
+    #####:  166:            inet_ntop(AF_INET, &((struct sockaddr_in *) addr)->sin_addr,
+        -:  167:                    rip, riplen - 1);
+    #####:  168:            *rport = ntohs(((struct sockaddr_in *) addr)->sin_port);
+    #####:  169:            break;
+    #####:  170:        case AF_INET6:
+    #####:  171:            inet_ntop(AF_INET6, &((struct sockaddr_in6 *) addr)->sin6_addr,
+        -:  172:                    rip, riplen - 1);
+    #####:  173:            *rport = ntohs(((struct sockaddr_in6 *) addr)->sin6_port);
+    #####:  174:            break;
+        -:  175:#ifndef DISABLE_UNIX_SOCKET
+        -:  176:        // Connections on Unix socket transports have c->request_addr zeroed out.
+        -:  177:        case AF_UNSPEC:
+        -:  178:        case AF_UNIX:
+        5:  179:            strncpy(rip, "unix", strlen("unix") + 1);
+        5:  180:            *rport = 0;
+        5:  181:            break;
+        -:  182:#endif // #ifndef DISABLE_UNIX_SOCKET
+        -:  183:    }
+        -:  184:
+        5:  185:    return 0;
+        -:  186:}
+        -:  187:
+        -:  188:/*************************
+        -:  189: * Logger background thread functions. Aggregates per-worker buffers and
+        -:  190: * writes to any watchers.
+        -:  191: *************************/
+        -:  192:
+        -:  193:#define LOGGER_PARSE_SCRATCH 4096
+        -:  194:
+    #####:  195:static int _logger_parse_text(logentry *e, char *scratch) {
+    #####:  196:    return snprintf(scratch, LOGGER_PARSE_SCRATCH, "ts=%d.%d gid=%llu %s\n",
+    #####:  197:            (int)e->tv.tv_sec, (int)e->tv.tv_usec,
+    #####:  198:            (unsigned long long) e->gid, (char *) e->data);
+        -:  199:}
+        -:  200:
+        4:  201:static int _logger_parse_ise(logentry *e, char *scratch) {
+        4:  202:    int total;
+        4:  203:    const char *cmd = "na";
+        4:  204:    char keybuf[KEY_MAX_URI_ENCODED_LENGTH];
+        4:  205:    struct logentry_item_store *le = (struct logentry_item_store *) e->data;
+        4:  206:    const char * const status_map[] = {
+        -:  207:        "not_stored", "stored", "exists", "not_found", "too_large", "no_memory" };
+        4:  208:    const char * const cmd_map[] = {
+        -:  209:        "null", "add", "set", "replace", "append", "prepend", "cas" };
+        -:  210:
+        4:  211:    if (le->cmd <= 6)
+        4:  212:        cmd = cmd_map[le->cmd];
+        -:  213:
+        4:  214:    uriencode(le->key, keybuf, le->nkey, KEY_MAX_URI_ENCODED_LENGTH);
+        4:  215:    total = snprintf(scratch, LOGGER_PARSE_SCRATCH,
+        -:  216:            "ts=%d.%d gid=%llu type=item_store key=%s status=%s cmd=%s ttl=%u clsid=%u cfd=%d size=%d\n",
+        4:  217:            (int)e->tv.tv_sec, (int)e->tv.tv_usec, (unsigned long long) e->gid,
+        4:  218:            keybuf, status_map[le->status], cmd, le->ttl, le->clsid, le->sfd,
+        4:  219:            le->nbytes > 0 ? le->nbytes - 2 : 0); // CLRF
+        4:  220:    return total;
+        -:  221:}
+        -:  222:
+    81095:  223:static int _logger_parse_ige(logentry *e, char *scratch) {
+    81095:  224:    int total;
+    81095:  225:    struct logentry_item_get *le = (struct logentry_item_get *) e->data;
+    81095:  226:    char keybuf[KEY_MAX_URI_ENCODED_LENGTH];
+    81095:  227:    const char * const was_found_map[] = {
+        -:  228:        "not_found", "found", "flushed", "expired" };
+        -:  229:
+    81095:  230:    uriencode(le->key, keybuf, le->nkey, KEY_MAX_URI_ENCODED_LENGTH);
+        2:  231:    total = snprintf(scratch, LOGGER_PARSE_SCRATCH,
+        -:  232:            "ts=%d.%d gid=%llu type=item_get key=%s status=%s clsid=%u cfd=%d size=%d\n",
+    81095:  233:            (int)e->tv.tv_sec, (int)e->tv.tv_usec, (unsigned long long) e->gid,
+    81095:  234:            keybuf, was_found_map[le->was_found], le->clsid, le->sfd,
+    81095:  235:            le->nbytes > 0 ? le->nbytes - 2 : 0); // CLRF
+    81095:  236:    return total;
+        -:  237:}
+        -:  238:
+        1:  239:static int _logger_parse_ee(logentry *e, char *scratch) {
+        1:  240:    int total;
+        1:  241:    char keybuf[KEY_MAX_URI_ENCODED_LENGTH];
+        1:  242:    struct logentry_eviction *le = (struct logentry_eviction *) e->data;
+        1:  243:    uriencode(le->key, keybuf, le->nkey, KEY_MAX_URI_ENCODED_LENGTH);
+        1:  244:    total = snprintf(scratch, LOGGER_PARSE_SCRATCH,
+        -:  245:            "ts=%d.%d gid=%llu type=eviction key=%s fetch=%s ttl=%lld la=%d clsid=%u size=%d\n",
+        1:  246:            (int)e->tv.tv_sec, (int)e->tv.tv_usec, (unsigned long long) e->gid,
+        1:  247:            keybuf, (le->it_flags & ITEM_FETCHED) ? "yes" : "no",
+        1:  248:            (long long int)le->exptime, le->latime, le->clsid,
+        1:  249:            le->nbytes > 0 ? le->nbytes - 2 : 0); // CLRF
+        -:  250:
+        1:  251:    return total;
+        -:  252:}
+        -:  253:
+        -:  254:#ifdef EXTSTORE
+    #####:  255:static int _logger_parse_extw(logentry *e, char *scratch) {
+    #####:  256:    int total;
+    #####:  257:    char keybuf[KEY_MAX_URI_ENCODED_LENGTH];
+    #####:  258:    struct logentry_ext_write *le = (struct logentry_ext_write *) e->data;
+    #####:  259:    uriencode(le->key, keybuf, le->nkey, KEY_MAX_URI_ENCODED_LENGTH);
+    #####:  260:    total = snprintf(scratch, LOGGER_PARSE_SCRATCH,
+        -:  261:            "ts=%d.%d gid=%llu type=extwrite key=%s fetch=%s ttl=%lld la=%d clsid=%u bucket=%u\n",
+    #####:  262:            (int)e->tv.tv_sec, (int)e->tv.tv_usec, (unsigned long long) e->gid,
+    #####:  263:            keybuf, (le->it_flags & ITEM_FETCHED) ? "yes" : "no",
+    #####:  264:            (long long int)le->exptime, le->latime, le->clsid, le->bucket);
+        -:  265:
+    #####:  266:    return total;
+        -:  267:}
+        -:  268:#endif
+        -:  269:
+        2:  270:static int _logger_parse_cne(logentry *e, char *scratch) {
+        2:  271:    int total;
+        2:  272:    unsigned short rport;
+        2:  273:    char rip[64];
+        2:  274:    struct logentry_conn_event *le = (struct logentry_conn_event *) e->data;
+        2:  275:    const char * const transport_map[] = { "local", "tcp", "udp" };
+        -:  276:
+        2:  277:    _logger_util_addr_endpoint(&le->addr, rip, sizeof(rip), &rport);
+        -:  278:
+        2:  279:    total = snprintf(scratch, LOGGER_PARSE_SCRATCH,
+        -:  280:            "ts=%d.%d gid=%llu type=conn_new rip=%s rport=%hu transport=%s cfd=%d\n",
+        2:  281:            (int) e->tv.tv_sec, (int) e->tv.tv_usec, (unsigned long long) e->gid,
+        2:  282:            rip, rport, transport_map[le->transport], le->sfd);
+        -:  283:
+        2:  284:    return total;
+        -:  285:}
+        -:  286:
+        3:  287:static int _logger_parse_cce(logentry *e, char *scratch) {
+        3:  288:    int total;
+        3:  289:    unsigned short rport;
+        3:  290:    char rip[64];
+        3:  291:    struct logentry_conn_event *le = (struct logentry_conn_event *) e->data;
+        3:  292:    const char * const transport_map[] = { "local", "tcp", "udp" };
+        3:  293:    const char * const reason_map[] = { "error", "normal", "idle_timeout", "shutdown" };
+        -:  294:
+        3:  295:    _logger_util_addr_endpoint(&le->addr, rip, sizeof(rip), &rport);
+        -:  296:
+        3:  297:    total = snprintf(scratch, LOGGER_PARSE_SCRATCH,
+        -:  298:            "ts=%d.%d gid=%llu type=conn_close rip=%s rport=%hu transport=%s reason=%s cfd=%d\n",
+        3:  299:            (int) e->tv.tv_sec, (int) e->tv.tv_usec, (unsigned long long) e->gid,
+        3:  300:            rip, rport, transport_map[le->transport],
+        3:  301:            reason_map[le->reason], le->sfd);
+        -:  302:
+        3:  303:    return total;
+        -:  304:}
+        -:  305:
+        -:  306:/* Should this go somewhere else? */
+        -:  307:static const entry_details default_entries[] = {
+        -:  308:    [LOGGER_ASCII_CMD] = {512, LOG_RAWCMDS, _logger_log_text, _logger_parse_text, "<%d %s"},
+        -:  309:    [LOGGER_EVICTION] = {512, LOG_EVICTIONS, _logger_log_evictions, _logger_parse_ee, NULL},
+        -:  310:    [LOGGER_ITEM_GET] = {512, LOG_FETCHERS, _logger_log_item_get, _logger_parse_ige, NULL},
+        -:  311:    [LOGGER_ITEM_STORE] = {512, LOG_MUTATIONS, _logger_log_item_store, _logger_parse_ise, NULL},
+        -:  312:    [LOGGER_CRAWLER_STATUS] = {512, LOG_SYSEVENTS, _logger_log_text, _logger_parse_text,
+        -:  313:        "type=lru_crawler crawler=%d lru=%s low_mark=%llu next_reclaims=%llu since_run=%u next_run=%d elapsed=%u examined=%llu reclaimed=%llu"
+        -:  314:    },
+        -:  315:    [LOGGER_SLAB_MOVE] = {512, LOG_SYSEVENTS, _logger_log_text, _logger_parse_text,
+        -:  316:        "type=slab_move src=%d dst=%d"
+        -:  317:    },
+        -:  318:    [LOGGER_CONNECTION_NEW] = {512, LOG_CONNEVENTS, _logger_log_conn_event, _logger_parse_cne, NULL},
+        -:  319:    [LOGGER_CONNECTION_CLOSE] = {512, LOG_CONNEVENTS, _logger_log_conn_event, _logger_parse_cce, NULL},
+        -:  320:#ifdef EXTSTORE
+        -:  321:    [LOGGER_EXTSTORE_WRITE] = {512, LOG_EVICTIONS, _logger_log_ext_write, _logger_parse_extw, NULL},
+        -:  322:    [LOGGER_COMPACT_START] = {512, LOG_SYSEVENTS, _logger_log_text, _logger_parse_text,
+        -:  323:        "type=compact_start id=%lu version=%llu"
+        -:  324:    },
+        -:  325:    [LOGGER_COMPACT_ABORT] = {512, LOG_SYSEVENTS, _logger_log_text, _logger_parse_text,
+        -:  326:        "type=compact_abort id=%lu"
+        -:  327:    },
+        -:  328:    [LOGGER_COMPACT_READ_START] = {512, LOG_SYSEVENTS, _logger_log_text, _logger_parse_text,
+        -:  329:        "type=compact_read_start id=%lu offset=%llu"
+        -:  330:    },
+        -:  331:    [LOGGER_COMPACT_READ_END] = {512, LOG_SYSEVENTS, _logger_log_text, _logger_parse_text,
+        -:  332:        "type=compact_read_end id=%lu offset=%llu rescues=%lu lost=%lu skipped=%lu"
+        -:  333:    },
+        -:  334:    [LOGGER_COMPACT_END] = {512, LOG_SYSEVENTS, _logger_log_text, _logger_parse_text,
+        -:  335:        "type=compact_end id=%lu"
+        -:  336:    },
+        -:  337:    [LOGGER_COMPACT_FRAGINFO] = {512, LOG_SYSEVENTS, _logger_log_text, _logger_parse_text,
+        -:  338:        "type=compact_fraginfo ratio=%.2f bytes=%lu"
+        -:  339:    },
+        -:  340:#endif
+        -:  341:};
+        -:  342:
+        -:  343:/*************************
+        -:  344: * Util functions shared between bg thread and workers
+        -:  345: *************************/
+        -:  346:
+        -:  347:/* Logger GID's can be used by watchers to put logs back into strict order
+        -:  348: */
+        -:  349:static uint64_t logger_gid = 0;
+    81117:  350:uint64_t logger_get_gid(void) {
+        -:  351:#ifdef HAVE_GCC_64ATOMICS
+    81117:  352:    return __sync_add_and_fetch(&logger_gid, 1);
+        -:  353:#elif defined(__sun)
+        -:  354:    return atomic_inc_64_nv(&logger_gid);
+        -:  355:#else
+        -:  356:    mutex_lock(&logger_atomics_mutex);
+        -:  357:    uint64_t res = ++logger_gid;
+        -:  358:    mutex_unlock(&logger_atomics_mutex);
+        -:  359:    return res;
+        -:  360:#endif
+        -:  361:}
+        -:  362:
+        1:  363:void logger_set_gid(uint64_t gid) {
+        -:  364:#ifdef HAVE_GCC_64ATOMICS
+        1:  365:    __sync_add_and_fetch(&logger_gid, gid);
+        -:  366:#elif defined(__sun)
+        -:  367:    atomic_add_64(&logger_gid);
+        -:  368:#else
+        -:  369:    mutex_lock(&logger_atomics_mutex);
+        -:  370:    logger_gid = gid;
+        -:  371:    mutex_unlock(&logger_atomics_mutex);
+        -:  372:#endif
+        1:  373:}
+        -:  374:
+        -:  375:/* TODO: genericize lists. would be nice to import queue.h if the impact is
+        -:  376: * studied... otherwise can just write a local one.
+        -:  377: */
+        -:  378:/* Add to the list of threads with a logger object */
+      609:  379:static void logger_link_q(logger *l) {
+      609:  380:    pthread_mutex_lock(&logger_stack_lock);
+     609*:  381:    assert(l != logger_stack_head);
+        -:  382:
+      609:  383:    l->prev = 0;
+      609:  384:    l->next = logger_stack_head;
+      609:  385:    if (l->next) l->next->prev = l;
+      609:  386:    logger_stack_head = l;
+      609:  387:    if (logger_stack_tail == 0) logger_stack_tail = l;
+      609:  388:    logger_count++;
+      609:  389:    pthread_mutex_unlock(&logger_stack_lock);
+      609:  390:    return;
+        -:  391:}
+        -:  392:
+        -:  393:/* Remove from the list of threads with a logger object */
+        -:  394:/*static void logger_unlink_q(logger *l) {
+        -:  395:    pthread_mutex_lock(&logger_stack_lock);
+        -:  396:    if (logger_stack_head == l) {
+        -:  397:        assert(l->prev == 0);
+        -:  398:        logger_stack_head = l->next;
+        -:  399:    }
+        -:  400:    if (logger_stack_tail == l) {
+        -:  401:        assert(l->next == 0);
+        -:  402:        logger_stack_tail = l->prev;
+        -:  403:    }
+        -:  404:    assert(l->next != l);
+        -:  405:    assert(l->prev != l);
+        -:  406:
+        -:  407:    if (l->next) l->next->prev = l->prev;
+        -:  408:    if (l->prev) l->prev->next = l->next;
+        -:  409:    logger_count--;
+        -:  410:    pthread_mutex_unlock(&logger_stack_lock);
+        -:  411:    return;
+        -:  412:}*/
+        -:  413:
+        -:  414:/* Called with logger stack locked.
+        -:  415: * Iterates over every watcher collecting enabled flags.
+        -:  416: */
+       20:  417:static void logger_set_flags(void) {
+       20:  418:    logger *l = NULL;
+       20:  419:    int x = 0;
+       20:  420:    uint16_t f = 0; /* logger eflags */
+        -:  421:
+      420:  422:    for (x = 0; x < WATCHER_LIMIT; x++) {
+      400:  423:        logger_watcher *w = watchers[x];
+      400:  424:        if (w == NULL)
+      374:  425:            continue;
+        -:  426:
+       26:  427:        f |= w->eflags;
+        -:  428:    }
+      120:  429:    for (l = logger_stack_head; l != NULL; l=l->next) {
+      100:  430:        pthread_mutex_lock(&l->mutex);
+      100:  431:        l->eflags = f;
+      100:  432:        pthread_mutex_unlock(&l->mutex);
+        -:  433:    }
+       20:  434:    return;
+        -:  435:}
+        -:  436:
+        -:  437:/* Completes rendering of log line. */
+    81105:  438:static enum logger_parse_entry_ret logger_thread_parse_entry(logentry *e, struct logger_stats *ls,
+        -:  439:        char *scratch, int *scratch_len) {
+    81105:  440:    int total = 0;
+    81105:  441:    const entry_details *d = &default_entries[e->event];
+   81105*:  442:    assert(d->parse_cb != NULL);
+    81105:  443:    total = d->parse_cb(e, scratch);
+        -:  444:
+    81105:  445:    if (total >= LOGGER_PARSE_SCRATCH || total <= 0) {
+        -:  446:        L_DEBUG("LOGGER: Failed to flatten log entry!\n");
+        -:  447:        return LOGGER_PARSE_ENTRY_FAILED;
+        -:  448:    } else {
+    81105:  449:        *scratch_len = total;
+        -:  450:    }
+        -:  451:
+    81105:  452:    return LOGGER_PARSE_ENTRY_OK;
+        -:  453:}
+        -:  454:
+        -:  455:/* Writes flattened entry to available watchers */
+    81105:  456:static void logger_thread_write_entry(logentry *e, struct logger_stats *ls,
+        -:  457:        char *scratch, int scratch_len) {
+    81105:  458:    int x, total;
+        -:  459:    /* Write the line into available watchers with matching flags */
+  1703205:  460:    for (x = 0; x < WATCHER_LIMIT; x++) {
+  1622100:  461:        logger_watcher *w = watchers[x];
+  1622100:  462:        char *skip_scr = NULL;
+  1622100:  463:        if (w == NULL || (e->eflags & w->eflags) == 0 || (e->gid < w->min_gid))
+  1540992:  464:            continue;
+        -:  465:
+        -:  466:         /* Avoid poll()'ing constantly when buffer is full by resetting a
+        -:  467:         * flag periodically.
+        -:  468:         */
+    82524:  469:        while (!w->failed_flush &&
+     2208:  470:                (skip_scr = (char *) bipbuf_request(w->buf, scratch_len + 128)) == NULL) {
+     1416:  471:            if (logger_thread_poll_watchers(0, x) <= 0) {
+     1404:  472:                L_DEBUG("LOGGER: Watcher had no free space for line of size (%d)\n", scratch_len + 128);
+     1404:  473:                w->failed_flush = true;
+        -:  474:            }
+        -:  475:        }
+        -:  476:
+    81108:  477:        if (w->failed_flush) {
+    80316:  478:            L_DEBUG("LOGGER: Fast skipped for watcher [%d] due to failed_flush\n", w->sfd);
+    80316:  479:            w->skipped++;
+    80316:  480:            ls->watcher_skipped++;
+    80316:  481:            continue;
+        -:  482:        }
+        -:  483:
+      792:  484:        if (w->skipped > 0) {
+        1:  485:            total = snprintf(skip_scr, 128, "skipped=%llu\n", (unsigned long long) w->skipped);
+        1:  486:            if (total >= 128 || total <= 0) {
+    #####:  487:                L_DEBUG("LOGGER: Failed to flatten skipped message into watcher [%d]\n", w->sfd);
+    #####:  488:                w->skipped++;
+    #####:  489:                ls->watcher_skipped++;
+    #####:  490:                continue;
+        -:  491:            }
+        1:  492:            bipbuf_push(w->buf, total);
+        1:  493:            w->skipped = 0;
+        -:  494:        }
+        -:  495:        /* Can't fail because bipbuf_request succeeded. */
+      792:  496:        bipbuf_offer(w->buf, (unsigned char *) scratch, scratch_len);
+      792:  497:        ls->watcher_sent++;
+        -:  498:    }
+    81105:  499:}
+        -:  500:
+        -:  501:/* Called with logger stack locked.
+        -:  502: * Releases every chunk associated with a watcher and closes the connection.
+        -:  503: * We can't presently send a connection back to the worker for further
+        -:  504: * processing.
+        -:  505: */
+       10:  506:static void logger_thread_close_watcher(logger_watcher *w) {
+       10:  507:    L_DEBUG("LOGGER: Closing dead watcher\n");
+       10:  508:    watchers[w->id] = NULL;
+       10:  509:    sidethread_conn_close(w->c);
+       10:  510:    watcher_count--;
+       10:  511:    bipbuf_free(w->buf);
+       10:  512:    free(w);
+       10:  513:    logger_set_flags();
+       10:  514:}
+        -:  515:
+        -:  516:/* Reads a particular worker thread's available bipbuf bytes. Parses each log
+        -:  517: * entry into the watcher buffers.
+        -:  518: */
+    10499:  519:static int logger_thread_read(logger *l, struct logger_stats *ls) {
+    10499:  520:    unsigned int size;
+    10499:  521:    unsigned int pos = 0;
+    10499:  522:    unsigned char *data;
+    10499:  523:    char scratch[LOGGER_PARSE_SCRATCH];
+    10499:  524:    logentry *e;
+    10499:  525:    pthread_mutex_lock(&l->mutex);
+    10499:  526:    data = bipbuf_peek_all(l->buf, &size);
+    10499:  527:    pthread_mutex_unlock(&l->mutex);
+        -:  528:
+    10499:  529:    if (data == NULL) {
+        -:  530:        return 0;
+        -:  531:    }
+        -:  532:    L_DEBUG("LOGGER: Got %d bytes from bipbuffer\n", size);
+        -:  533:
+        -:  534:    /* parse buffer */
+    82523:  535:    while (pos < size && watcher_count > 0) {
+    81105:  536:        enum logger_parse_entry_ret ret;
+    81105:  537:        int scratch_len = 0;
+    81105:  538:        e = (logentry *) (data + pos);
+    81105:  539:        ret = logger_thread_parse_entry(e, ls, scratch, &scratch_len);
+    81105:  540:        if (ret != LOGGER_PARSE_ENTRY_OK) {
+        -:  541:            /* TODO: stats counter */
+    #####:  542:            fprintf(stderr, "LOGGER: Failed to parse log entry\n");
+        -:  543:        } else {
+    81105:  544:            logger_thread_write_entry(e, ls, scratch, scratch_len);
+        -:  545:        }
+    81105:  546:        pos += sizeof(logentry) + e->size + e->pad;
+        -:  547:    }
+    1418*:  548:    assert(pos <= size);
+        -:  549:
+     1418:  550:    pthread_mutex_lock(&l->mutex);
+     1418:  551:    data = bipbuf_poll(l->buf, size);
+     1418:  552:    ls->worker_written += l->written;
+     1418:  553:    ls->worker_dropped += l->dropped;
+     1418:  554:    l->written = 0;
+     1418:  555:    l->dropped = 0;
+     1418:  556:    pthread_mutex_unlock(&l->mutex);
+     1418:  557:    if (data == NULL) {
+    #####:  558:        fprintf(stderr, "LOGGER: unexpectedly couldn't advance buf pointer\n");
+    #####:  559:        assert(0);
+        -:  560:    }
+     1418:  561:    return size; /* maybe the count of objects iterated? */
+        -:  562:}
+        -:  563:
+        -:  564:/* Since the event loop code isn't reusable without a refactor, and we have a
+        -:  565: * limited number of potential watchers, we run our own poll loop.
+        -:  566: * This calls poll() unnecessarily during write flushes, should be possible to
+        -:  567: * micro-optimize later.
+        -:  568: *
+        -:  569: * This flushes buffers attached to watchers, iterating through the bytes set
+        -:  570: * to each worker. Also checks for readability in case client connection was
+        -:  571: * closed.
+        -:  572: *
+        -:  573: * Allows a specific watcher to be flushed (if buf full)
+        -:  574: */
+     3509:  575:static int logger_thread_poll_watchers(int force_poll, int watcher) {
+     3509:  576:    int x;
+     3509:  577:    int nfd = 0;
+     3509:  578:    unsigned char *data;
+     3509:  579:    unsigned int data_size = 0;
+     3509:  580:    int flushed = 0;
+        -:  581:
+    73689:  582:    for (x = 0; x < WATCHER_LIMIT; x++) {
+    70180:  583:        logger_watcher *w = watchers[x];
+    70180:  584:        if (w == NULL || (watcher != WATCHER_ALL && x != watcher))
+    66749:  585:            continue;
+        -:  586:
+     3431:  587:        data = bipbuf_peek_all(w->buf, &data_size);
+     3431:  588:        if (data != NULL) {
+     3330:  589:            watchers_pollfds[nfd].fd = w->sfd;
+     3330:  590:            watchers_pollfds[nfd].events = POLLOUT;
+     3330:  591:            nfd++;
+      101:  592:        } else if (force_poll) {
+      101:  593:            watchers_pollfds[nfd].fd = w->sfd;
+      101:  594:            watchers_pollfds[nfd].events = POLLIN;
+      101:  595:            nfd++;
+        -:  596:        }
+        -:  597:        /* This gets set after a call to poll, and should be used to gate on
+        -:  598:         * calling poll again.
+        -:  599:         */
+     3431:  600:        w->failed_flush = false;
+        -:  601:    }
+        -:  602:
+     3509:  603:    if (nfd == 0)
+        -:  604:        return 0;
+        -:  605:
+        -:  606:    //L_DEBUG("LOGGER: calling poll() [data_size: %d]\n", data_size);
+     3395:  607:    int ret = poll(watchers_pollfds, nfd, 0);
+        -:  608:
+     3395:  609:    if (ret < 0) {
+    #####:  610:        perror("something failed with logger thread watcher fd polling");
+    #####:  611:        return -1;
+        -:  612:    }
+        -:  613:
+        -:  614:    nfd = 0;
+    71295:  615:    for (x = 0; x < WATCHER_LIMIT; x++) {
+    67900:  616:        logger_watcher *w = watchers[x];
+    67900:  617:        if (w == NULL || (watcher != WATCHER_ALL && x != watcher))
+    64469:  618:            continue;
+        -:  619:
+     3431:  620:        data_size = 0;
+        -:  621:        /* Early detection of a disconnect. Otherwise we have to wait until
+        -:  622:         * the next write
+        -:  623:         */
+     3431:  624:        if (watchers_pollfds[nfd].revents & POLLIN) {
+        8:  625:            char buf[1];
+        8:  626:            int res = ((conn*)w->c)->read(w->c, buf, 1);
+        8:  627:            if (res == 0 || (res == -1 && (errno != EAGAIN && errno != EWOULDBLOCK))) {
+        8:  628:                L_DEBUG("LOGGER: watcher closed remotely\n");
+        8:  629:                logger_thread_close_watcher(w);
+        8:  630:                nfd++;
+        8:  631:                continue;
+        -:  632:            }
+        -:  633:        }
+     3423:  634:        if ((data = bipbuf_peek_all(w->buf, &data_size)) != NULL) {
+     3330:  635:            if (watchers_pollfds[nfd].revents & (POLLHUP|POLLERR)) {
+        2:  636:                L_DEBUG("LOGGER: watcher closed during poll() call\n");
+        2:  637:                logger_thread_close_watcher(w);
+     3328:  638:            } else if (watchers_pollfds[nfd].revents & POLLOUT) {
+       38:  639:                int total = 0;
+        -:  640:
+        -:  641:                /* We can write a bit. */
+       38:  642:                switch (w->t) {
+    #####:  643:                    case LOGGER_WATCHER_STDERR:
+    #####:  644:                        total = fwrite(data, 1, data_size, stderr);
+    #####:  645:                        break;
+       38:  646:                    case LOGGER_WATCHER_CLIENT:
+       38:  647:                        total = ((conn*)w->c)->write(w->c, data, data_size);
+       38:  648:                        break;
+        -:  649:                }
+        -:  650:
+        -:  651:                L_DEBUG("LOGGER: poll() wrote %d to %d (data_size: %d) (bipbuf_used: %d)\n", total, w->sfd,
+       38:  652:                        data_size, bipbuf_used(w->buf));
+       38:  653:                if (total == -1) {
+    #####:  654:                    if (errno != EAGAIN && errno != EWOULDBLOCK) {
+    #####:  655:                        logger_thread_close_watcher(w);
+        -:  656:                    }
+        -:  657:                    L_DEBUG("LOGGER: watcher hit EAGAIN\n");
+       38:  658:                } else if (total == 0) {
+    #####:  659:                    logger_thread_close_watcher(w);
+        -:  660:                } else {
+       38:  661:                    bipbuf_poll(w->buf, total);
+       38:  662:                    flushed += total;
+        -:  663:                }
+        -:  664:            }
+        -:  665:        }
+     3423:  666:        nfd++;
+        -:  667:    }
+        -:  668:    return flushed;
+        -:  669:}
+        -:  670:
+     2093:  671:static void logger_thread_flush_stats(struct logger_stats *ls) {
+     2093:  672:    STATS_LOCK();
+     2093:  673:    stats.log_worker_dropped  += ls->worker_dropped;
+     2093:  674:    stats.log_worker_written  += ls->worker_written;
+     2093:  675:    stats.log_watcher_skipped += ls->watcher_skipped;
+     2093:  676:    stats.log_watcher_sent    += ls->watcher_sent;
+     2093:  677:    stats_state.log_watchers   = ls->watcher_count;
+     2093:  678:    STATS_UNLOCK();
+     2093:  679:}
+        -:  680:
+        -:  681:#define MAX_LOGGER_SLEEP 1000000
+        -:  682:#define MIN_LOGGER_SLEEP 1000
+        -:  683:
+        -:  684:/* Primary logger thread routine */
+      116:  685:static void *logger_thread(void *arg) {
+      116:  686:    useconds_t to_sleep = MIN_LOGGER_SLEEP;
+      116:  687:    L_DEBUG("LOGGER: Starting logger thread\n");
+        -:  688:    // TODO: If we ever have item references in the logger code, will need to
+        -:  689:    // ensure everything is dequeued before stopping the thread.
+     2209:  690:    while (do_run_logger_thread) {
+     2095:  691:        int found_logs = 0;
+     2095:  692:        logger *l;
+     2095:  693:        struct logger_stats ls;
+     2095:  694:        memset(&ls, 0, sizeof(struct logger_stats));
+        -:  695:
+        -:  696:        /* only sleep if we're *above* the minimum */
+     2095:  697:        if (to_sleep > MIN_LOGGER_SLEEP)
+      568:  698:            usleep(to_sleep);
+        -:  699:
+        -:  700:        /* Call function to iterate each logger. */
+     2095:  701:        pthread_mutex_lock(&logger_stack_lock);
+     2095:  702:        if (watcher_count == 0) {
+        -:  703:            // Not bothering to loop on the condition here since it's fine to
+        -:  704:            // walk through with zero watchers.
+      121:  705:            pthread_cond_wait(&logger_stack_cond, &logger_stack_lock);
+        -:  706:        }
+    12592:  707:        for (l = logger_stack_head; l != NULL; l=l->next) {
+        -:  708:            /* lock logger, call function to manipulate it */
+    10499:  709:            found_logs += logger_thread_read(l, &ls);
+        -:  710:        }
+        -:  711:
+     2093:  712:        logger_thread_poll_watchers(1, WATCHER_ALL);
+        -:  713:
+        -:  714:        /* capture the current count within mutual exclusion of the lock */
+     2093:  715:        ls.watcher_count = watcher_count;
+        -:  716:
+     2093:  717:        pthread_mutex_unlock(&logger_stack_lock);
+        -:  718:
+        -:  719:        /* TODO: abstract into a function and share with lru_crawler */
+     2093:  720:        if (!found_logs) {
+      675:  721:            if (to_sleep < MAX_LOGGER_SLEEP)
+      675:  722:                to_sleep += to_sleep / 8;
+      675:  723:            if (to_sleep > MAX_LOGGER_SLEEP)
+        -:  724:                to_sleep = MAX_LOGGER_SLEEP;
+        -:  725:        } else {
+     1418:  726:            to_sleep /= 2;
+     1418:  727:            if (to_sleep < MIN_LOGGER_SLEEP)
+     1412:  728:                to_sleep = MIN_LOGGER_SLEEP;
+        -:  729:        }
+     2093:  730:        logger_thread_flush_stats(&ls);
+        -:  731:    }
+        -:  732:
+      114:  733:    return NULL;
+        -:  734:}
+        -:  735:
+      116:  736:static int start_logger_thread(void) {
+      116:  737:    int ret;
+      116:  738:    do_run_logger_thread = 1;
+      116:  739:    if ((ret = pthread_create(&logger_tid, NULL,
+        -:  740:                              logger_thread, NULL)) != 0) {
+    #####:  741:        fprintf(stderr, "Can't start logger thread: %s\n", strerror(ret));
+    #####:  742:        return -1;
+        -:  743:    }
+        -:  744:    return 0;
+        -:  745:}
+        -:  746:
+      114:  747:static int stop_logger_thread(void) {
+      114:  748:    do_run_logger_thread = 0;
+      114:  749:    pthread_cond_signal(&logger_stack_cond);
+      114:  750:    pthread_join(logger_tid, NULL);
+      114:  751:    return 0;
+        -:  752:}
+        -:  753:
+        -:  754:/*************************
+        -:  755: * Public functions for submitting logs and starting loggers from workers.
+        -:  756: *************************/
+        -:  757:
+        -:  758:/* Global logger thread start/init */
+      116:  759:void logger_init(void) {
+        -:  760:    /* TODO: auto destructor when threads exit */
+        -:  761:    /* TODO: error handling */
+        -:  762:
+        -:  763:    /* init stack for iterating loggers */
+      116:  764:    logger_stack_head = 0;
+      116:  765:    logger_stack_tail = 0;
+      116:  766:    pthread_key_create(&logger_key, NULL);
+        -:  767:
+      116:  768:    if (start_logger_thread() != 0) {
+    #####:  769:        abort();
+        -:  770:    }
+        -:  771:
+        -:  772:    /* This is what adding a STDERR watcher looks like. should replace old
+        -:  773:     * "verbose" settings. */
+        -:  774:    //logger_add_watcher(NULL, 0);
+      116:  775:    return;
+        -:  776:}
+        -:  777:
+      114:  778:void logger_stop(void) {
+      114:  779:    stop_logger_thread();
+      114:  780:}
+        -:  781:
+        -:  782:/* called *from* the thread using a logger.
+        -:  783: * initializes the per-thread bipbuf, links it into the list of loggers
+        -:  784: */
+      609:  785:logger *logger_create(void) {
+      609:  786:    L_DEBUG("LOGGER: Creating and linking new logger instance\n");
+      609:  787:    logger *l = calloc(1, sizeof(logger));
+      609:  788:    if (l == NULL) {
+        -:  789:        return NULL;
+        -:  790:    }
+        -:  791:
+      609:  792:    l->buf = bipbuf_new(settings.logger_buf_size);
+      609:  793:    if (l->buf == NULL) {
+    #####:  794:        free(l);
+    #####:  795:        return NULL;
+        -:  796:    }
+        -:  797:
+      609:  798:    l->entry_map = default_entries;
+        -:  799:
+      609:  800:    pthread_mutex_init(&l->mutex, NULL);
+      609:  801:    pthread_setspecific(logger_key, l);
+        -:  802:
+        -:  803:    /* add to list of loggers */
+      609:  804:    logger_link_q(l);
+      609:  805:    return l;
+        -:  806:}
+        -:  807:
+        -:  808:/* Public function for logging an entry.
+        -:  809: * Tries to encapsulate as much of the formatting as possible to simplify the
+        -:  810: * caller's code.
+        -:  811: */
+    88022:  812:enum logger_ret_type logger_log(logger *l, const enum log_entry_type event, const void *entry, ...) {
+    88022:  813:    bipbuf_t *buf = l->buf;
+    88022:  814:    bool nospace = false;
+    88022:  815:    va_list ap;
+    88022:  816:    logentry *e;
+        -:  817:
+    88022:  818:    const entry_details *d = &l->entry_map[event];
+    88022:  819:    int reqlen = d->reqlen;
+        -:  820:
+    88022:  821:    pthread_mutex_lock(&l->mutex);
+        -:  822:    /* Request a maximum length of data to write to */
+    88022:  823:    e = (logentry *) bipbuf_request(buf, (sizeof(logentry) + reqlen));
+    88022:  824:    if (e == NULL) {
+     6916:  825:        pthread_mutex_unlock(&l->mutex);
+     6916:  826:        l->dropped++;
+     6916:  827:        return LOGGER_RET_NOSPACE;
+        -:  828:    }
+    81106:  829:    e->event = event;
+    81106:  830:    e->pad = 0;
+    81106:  831:    e->gid = logger_get_gid();
+        -:  832:    /* TODO: Could pass this down as an argument now that we're using
+        -:  833:     * LOGGER_LOG() macro.
+        -:  834:     */
+    81106:  835:    e->eflags = d->eflags;
+        -:  836:    /* Noting time isn't optional. A feature may be added to avoid rendering
+        -:  837:     * time and/or gid to a logger.
+        -:  838:     */
+    81106:  839:    gettimeofday(&e->tv, NULL);
+        -:  840:
+    81106:  841:    va_start(ap, entry);
+    81106:  842:    d->log_cb(e, d, entry, ap);
+    81106:  843:    va_end(ap);
+        -:  844:
+        -:  845:#ifdef NEED_ALIGN
+        -:  846:    /* Need to ensure *next* request is aligned. */
+        -:  847:    if (sizeof(logentry) + e->size % 8 != 0) {
+        -:  848:        e->pad = 8 - (sizeof(logentry) + e->size % 8);
+        -:  849:    }
+        -:  850:#endif
+        -:  851:
+        -:  852:    /* Push pointer forward by the actual amount required */
+    81106:  853:    if (bipbuf_push(buf, (sizeof(logentry) + e->size + e->pad)) == 0) {
+    #####:  854:        fprintf(stderr, "LOGGER: Failed to bipbuf push a text entry\n");
+    #####:  855:        pthread_mutex_unlock(&l->mutex);
+    #####:  856:        return LOGGER_RET_ERR;
+        -:  857:    }
+    81106:  858:    l->written++;
+        -:  859:    L_DEBUG("LOGGER: Requested %d bytes, wrote %lu bytes\n", reqlen,
+    81106:  860:            (sizeof(logentry) + e->size));
+        -:  861:
+    81106:  862:    pthread_mutex_unlock(&l->mutex);
+        -:  863:
+    81106:  864:    if (nospace) {
+        -:  865:        return LOGGER_RET_NOSPACE;
+        -:  866:    } else {
+    81106:  867:        return LOGGER_RET_OK;
+        -:  868:    }
+        -:  869:}
+        -:  870:
+        -:  871:/* Passes a client connection socket from a primary worker thread to the
+        -:  872: * logger thread. Caller *must* event_del() the client before handing it over.
+        -:  873: * Presently there's no way to hand the client back to the worker thread.
+        -:  874: */
+       10:  875:enum logger_add_watcher_ret logger_add_watcher(void *c, const int sfd, uint16_t f) {
+       10:  876:    int x;
+       10:  877:    logger_watcher *w = NULL;
+       10:  878:    pthread_mutex_lock(&logger_stack_lock);
+       10:  879:    if (watcher_count >= WATCHER_LIMIT) {
+    #####:  880:        pthread_mutex_unlock(&logger_stack_lock);
+    #####:  881:        return LOGGER_ADD_WATCHER_TOO_MANY;
+        -:  882:    }
+        -:  883:
+       18:  884:    for (x = 0; x < WATCHER_LIMIT-1; x++) {
+       18:  885:        if (watchers[x] == NULL)
+        -:  886:            break;
+        -:  887:    }
+        -:  888:
+       10:  889:    w = calloc(1, sizeof(logger_watcher));
+       10:  890:    if (w == NULL) {
+    #####:  891:        pthread_mutex_unlock(&logger_stack_lock);
+    #####:  892:        return LOGGER_ADD_WATCHER_FAILED;
+        -:  893:    }
+       10:  894:    w->c = c;
+       10:  895:    w->sfd = sfd;
+       10:  896:    if (sfd == 0 && c == NULL) {
+    #####:  897:        w->t = LOGGER_WATCHER_STDERR;
+        -:  898:    } else {
+       10:  899:        w->t = LOGGER_WATCHER_CLIENT;
+        -:  900:    }
+       10:  901:    w->id = x;
+       10:  902:    w->eflags = f;
+       10:  903:    w->min_gid = logger_get_gid();
+       10:  904:    w->buf = bipbuf_new(settings.logger_watcher_buf_size);
+       10:  905:    if (w->buf == NULL) {
+    #####:  906:        free(w);
+    #####:  907:        pthread_mutex_unlock(&logger_stack_lock);
+    #####:  908:        return LOGGER_ADD_WATCHER_FAILED;
+        -:  909:    }
+       10:  910:    bipbuf_offer(w->buf, (unsigned char *) "OK\r\n", 4);
+        -:  911:
+       10:  912:    watchers[x] = w;
+       10:  913:    watcher_count++;
+        -:  914:    /* Update what flags the global logs will watch */
+       10:  915:    logger_set_flags();
+       10:  916:    pthread_cond_signal(&logger_stack_cond);
+        -:  917:
+       10:  918:    pthread_mutex_unlock(&logger_stack_lock);
+       10:  919:    return LOGGER_ADD_WATCHER_OK;
+        -:  920:}

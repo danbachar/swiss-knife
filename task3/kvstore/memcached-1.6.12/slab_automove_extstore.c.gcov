@@ -1,0 +1,302 @@
+        -:    0:Source:slab_automove_extstore.c
+        -:    0:Graph:slab_automove_extstore.gcno
+        -:    0:Data:slab_automove_extstore.gcda
+        -:    0:Runs:396
+        -:    1:/*  Copyright 2017 Facebook.
+        -:    2: *
+        -:    3: *  Use and distribution licensed under the BSD license.  See
+        -:    4: *  the LICENSE file for full text.
+        -:    5: */
+        -:    6:
+        -:    7:/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+        -:    8:#include "memcached.h"
+        -:    9:#include "slab_automove_extstore.h"
+        -:   10:#include <stdlib.h>
+        -:   11:#include <string.h>
+        -:   12:
+        -:   13:#define MIN_PAGES_FOR_SOURCE 2
+        -:   14:#define MIN_PAGES_FOR_RECLAIM 2.5
+        -:   15:#define MIN_PAGES_FREE 1.5
+        -:   16:#define MEMCHECK_PERIOD 60
+        -:   17:
+        -:   18:struct window_data {
+        -:   19:    uint64_t age;
+        -:   20:    uint64_t dirty;
+        -:   21:    uint64_t evicted;
+        -:   22:    unsigned int excess_free;
+        -:   23:    unsigned int relaxed;
+        -:   24:};
+        -:   25:
+        -:   26:struct window_global {
+        -:   27:    uint32_t pool_low;
+        -:   28:    uint32_t pool_high;
+        -:   29:};
+        -:   30:
+        -:   31:typedef struct {
+        -:   32:    struct window_data *window_data;
+        -:   33:    struct window_global *window_global;
+        -:   34:    struct settings *settings;
+        -:   35:    uint32_t window_size;
+        -:   36:    uint32_t window_cur;
+        -:   37:    uint32_t item_size;
+        -:   38:    rel_time_t last_memcheck_run;
+        -:   39:    double max_age_ratio;
+        -:   40:    double free_ratio;
+        -:   41:    bool pool_filled_once;
+        -:   42:    unsigned int free_mem[MAX_NUMBER_OF_SLAB_CLASSES];
+        -:   43:    item_stats_automove iam_before[MAX_NUMBER_OF_SLAB_CLASSES];
+        -:   44:    item_stats_automove iam_after[MAX_NUMBER_OF_SLAB_CLASSES];
+        -:   45:    slab_stats_automove sam_before[MAX_NUMBER_OF_SLAB_CLASSES];
+        -:   46:    slab_stats_automove sam_after[MAX_NUMBER_OF_SLAB_CLASSES];
+        -:   47:} slab_automove;
+        -:   48:
+        7:   49:void *slab_automove_extstore_init(struct settings *settings) {
+        7:   50:    uint32_t window_size = settings->slab_automove_window;
+        7:   51:    double max_age_ratio = settings->slab_automove_ratio;
+        7:   52:    slab_automove *a = calloc(1, sizeof(slab_automove));
+        7:   53:    if (a == NULL)
+        -:   54:        return NULL;
+        7:   55:    a->window_data = calloc(window_size * MAX_NUMBER_OF_SLAB_CLASSES, sizeof(struct window_data));
+        7:   56:    a->window_global = calloc(window_size, sizeof(struct window_global));
+        7:   57:    a->window_size = window_size;
+        7:   58:    a->max_age_ratio = max_age_ratio;
+        7:   59:    a->free_ratio = settings->slab_automove_freeratio;
+        7:   60:    a->item_size = settings->ext_item_size;
+        7:   61:    a->last_memcheck_run = 0;
+        7:   62:    a->settings = settings;
+        7:   63:    a->pool_filled_once = false;
+        7:   64:    if (a->window_data == NULL || a->window_global == NULL) {
+    #####:   65:        if (a->window_data)
+    #####:   66:            free(a->window_data);
+    #####:   67:        if (a->window_global)
+    #####:   68:            free(a->window_global);
+    #####:   69:        free(a);
+    #####:   70:        return NULL;
+        -:   71:    }
+        -:   72:
+        -:   73:    // do a dry run to fill the before structs
+        7:   74:    fill_item_stats_automove(a->iam_before);
+        7:   75:    fill_slab_stats_automove(a->sam_before);
+        -:   76:
+        7:   77:    return (void *)a;
+        -:   78:}
+        -:   79:
+        7:   80:void slab_automove_extstore_free(void *arg) {
+        7:   81:    slab_automove *a = (slab_automove *)arg;
+        7:   82:    free(a->window_data);
+        7:   83:    free(a->window_global);
+        7:   84:    free(a);
+        7:   85:}
+        -:   86:
+     2079:   87:static void window_sum(struct window_data *wd, struct window_data *w,
+        -:   88:        uint32_t size) {
+    64449:   89:    for (int x = 0; x < size; x++) {
+    62370:   90:        struct window_data *d = &wd[x];
+    62370:   91:        w->age += d->age;
+    62370:   92:        w->dirty += d->dirty;
+    62370:   93:        w->evicted += d->evicted;
+    62370:   94:        w->excess_free += d->excess_free;
+    62370:   95:        w->relaxed += d->relaxed;
+        -:   96:    }
+     2079:   97:}
+        -:   98:
+        -:   99:/* This could potentially merge with above */
+       33:  100:static void window_global_sum(struct window_global *wg,
+        -:  101:        struct window_global *w, uint32_t size) {
+     1023:  102:    for (int x = 0; x < size; x++) {
+      990:  103:        struct window_global *d = &wg[x];
+      990:  104:        w->pool_high += d->pool_high;
+      990:  105:        w->pool_low += d->pool_low;
+        -:  106:    }
+       33:  107:}
+        -:  108:
+       33:  109:static void global_pool_check(slab_automove *a) {
+       33:  110:    bool mem_limit_reached;
+       33:  111:    uint32_t free = a->free_mem[0];
+       33:  112:    struct window_global *wg = &a->window_global[a->window_cur % a->window_size];
+       33:  113:    unsigned int count = global_page_pool_size(&mem_limit_reached);
+       33:  114:    memset(wg, 0, sizeof(struct window_global));
+       33:  115:    if (!mem_limit_reached)
+    #####:  116:        return;
+       33:  117:    if (count < free / 2) {
+    #####:  118:        wg->pool_low = 1;
+    #####:  119:        a->pool_filled_once = true;
+       33:  120:    } else if (count > free) {
+       33:  121:        wg->pool_high = 1;
+        -:  122:    } else {
+    #####:  123:        a->pool_filled_once = true;
+        -:  124:    }
+        -:  125:}
+        -:  126:
+        -:  127:/* A percentage of memory is configured to be held "free" as buffers for the
+        -:  128: * external storage system.
+        -:  129: * % of global memory is desired in the global page pool
+        -:  130: * each slab class has a % of free chunks desired based on how much memory is
+        -:  131: * currently in the class. This allows time for extstore to flush data when
+        -:  132: * spikes or waves of set data arrive.
+        -:  133: * The global page pool reserve acts as a secondary buffer for any slab class,
+        -:  134: * which helps absorb shifts in which class is active.
+        -:  135: */
+       33:  136:static void memcheck(slab_automove *a) {
+       33:  137:    unsigned int total_pages = 0;
+       33:  138:    if (current_time < a->last_memcheck_run + MEMCHECK_PERIOD)
+        -:  139:        return;
+        2:  140:    a->last_memcheck_run = current_time;
+      128:  141:    for (int n = 1; n < MAX_NUMBER_OF_SLAB_CLASSES; n++) {
+      126:  142:        slab_stats_automove *sam = &a->sam_after[n];
+      126:  143:        total_pages += sam->total_pages;
+      126:  144:        unsigned int hold_free = (sam->total_pages * sam->chunks_per_page)
+      126:  145:            * a->free_ratio;
+      126:  146:        if (sam->chunks_per_page * MIN_PAGES_FREE > hold_free)
+       78:  147:            hold_free = sam->chunks_per_page * MIN_PAGES_FREE;
+      126:  148:        a->free_mem[n] = hold_free;
+      126:  149:        if (a->settings->ext_free_memchunks[n] != hold_free && a->pool_filled_once) {
+    #####:  150:            a->settings->ext_free_memchunks[n] = hold_free;
+        -:  151:        }
+        -:  152:    }
+        -:  153:    // remember to add what remains in global pool.
+        2:  154:    total_pages += a->sam_after[0].total_pages;
+        2:  155:    a->free_mem[0] = total_pages * a->free_ratio;
+        -:  156:}
+        -:  157:
+        -:  158:static struct window_data *get_window_data(slab_automove *a, int class) {
+    2079*:  159:    int w_offset = class * a->window_size;
+    2079*:  160:    return &a->window_data[w_offset + (a->window_cur % a->window_size)];
+        -:  161:}
+        -:  162:
+       33:  163:void slab_automove_extstore_run(void *arg, int *src, int *dst) {
+       33:  164:    slab_automove *a = (slab_automove *)arg;
+       33:  165:    int n;
+       33:  166:    struct window_data w_sum;
+       33:  167:    int oldest = -1;
+       33:  168:    uint64_t oldest_age = 0;
+       33:  169:    int youngest = -1;
+       33:  170:    uint64_t youngest_age = ~0;
+       33:  171:    bool too_free = false;
+       33:  172:    *src = -1;
+       33:  173:    *dst = -1;
+        -:  174:
+       33:  175:    global_pool_check(a);
+       33:  176:    struct window_global wg_sum;
+       33:  177:    memset(&wg_sum, 0, sizeof(struct window_global));
+       33:  178:    window_global_sum(a->window_global, &wg_sum, a->window_size);
+        -:  179:    // fill after structs
+       33:  180:    fill_item_stats_automove(a->iam_after);
+       33:  181:    fill_slab_stats_automove(a->sam_after);
+       33:  182:    a->window_cur++;
+        -:  183:
+       33:  184:    memcheck(a);
+        -:  185:
+        -:  186:    // iterate slabs
+     2145:  187:    for (n = POWER_SMALLEST; n < MAX_NUMBER_OF_SLAB_CLASSES; n++) {
+     2079:  188:        bool small_slab = a->sam_before[n].chunk_size < a->item_size
+        -:  189:            ? true : false;
+     2079:  190:        bool free_enough = false;
+     2079:  191:        struct window_data *wd = get_window_data(a, n);
+        -:  192:        // summarize the window-up-to-now.
+     2079:  193:        memset(&w_sum, 0, sizeof(struct window_data));
+     2079:  194:        int w_offset = n * a->window_size;
+     2079:  195:        window_sum(&a->window_data[w_offset], &w_sum, a->window_size);
+     2079:  196:        memset(wd, 0, sizeof(struct window_data));
+        -:  197:
+        -:  198:        // if page delta, oom, or evicted delta, mark window dirty
+        -:  199:        // classes marked dirty cannot donate memory back to global pool.
+     2079:  200:        if (a->iam_after[n].evicted - a->iam_before[n].evicted > 0 ||
+     2079:  201:            a->iam_after[n].outofmemory - a->iam_before[n].outofmemory > 0) {
+    #####:  202:            wd->evicted = 1;
+    #####:  203:            wd->dirty = 1;
+        -:  204:        }
+     2079:  205:        if (a->sam_after[n].total_pages - a->sam_before[n].total_pages > 0) {
+        4:  206:            wd->dirty = 1;
+        -:  207:        }
+        -:  208:        // Mark excess free if we're over the free mem limit for too long.
+        -:  209:        // "free_enough" means it is either wobbling, recently received a new
+        -:  210:        // page of memory, or the crawler is freeing memory.
+     2079:  211:        if (a->sam_after[n].free_chunks > a->free_mem[n]) {
+       22:  212:            free_enough = true;
+        -:  213:        }
+        -:  214:        // double the free requirements means we may have memory we can
+        -:  215:        // reclaim to global, if it stays this way for the whole window.
+     2079:  216:        if (a->sam_after[n].free_chunks > (a->free_mem[n] * 2) && a->free_mem[n] > 0) {
+       22:  217:            wd->excess_free = 1;
+        -:  218:        }
+        -:  219:
+        -:  220:        // set age into window
+     2079:  221:        wd->age = a->iam_after[n].age;
+        -:  222:
+        -:  223:        // grab age as average of window total
+     2079:  224:        uint64_t age = w_sum.age / a->window_size;
+        -:  225:
+        -:  226:        // if > N free chunks and not dirty, reclaim memory
+        -:  227:        // small slab classes aren't age balanced and rely more on global
+        -:  228:        // pool. reclaim them more aggressively.
+     2079:  229:        if (a->sam_after[n].free_chunks > a->sam_after[n].chunks_per_page * MIN_PAGES_FOR_RECLAIM
+       22:  230:                && w_sum.dirty == 0) {
+    #####:  231:            if (small_slab) {
+    #####:  232:                *src = n;
+    #####:  233:                *dst = 0;
+    #####:  234:                too_free = true;
+    #####:  235:            } else if (!small_slab && w_sum.excess_free >= a->window_size) {
+        -:  236:                // If large slab and free chunks haven't decreased for a full
+        -:  237:                // window, reclaim pages.
+    #####:  238:                *src = n;
+    #####:  239:                *dst = 0;
+    #####:  240:                too_free = true;
+        -:  241:            }
+        -:  242:        }
+        -:  243:
+     2079:  244:        if (!small_slab) {
+        -:  245:            // if oldest and have enough pages, is oldest
+     1023:  246:            if (age > oldest_age
+      527:  247:                    && a->sam_after[n].total_pages > MIN_PAGES_FOR_SOURCE) {
+       31:  248:                oldest = n;
+       31:  249:                oldest_age = age;
+        -:  250:            }
+        -:  251:
+        -:  252:            // don't count as youngest if it hasn't been using new chunks.
+        -:  253:            // (if it was relaxed recently, and is currently "free enough")
+     1023:  254:            if (age < youngest_age && a->sam_after[n].total_pages != 0
+       31:  255:                    && w_sum.excess_free < a->window_size
+      31*:  256:                    && !(w_sum.relaxed && free_enough)) {
+       31:  257:                youngest = n;
+       31:  258:                youngest_age = age;
+        -:  259:            }
+        -:  260:        }
+        -:  261:    }
+        -:  262:
+       33:  263:    memcpy(a->iam_before, a->iam_after,
+        -:  264:            sizeof(item_stats_automove) * MAX_NUMBER_OF_SLAB_CLASSES);
+       33:  265:    memcpy(a->sam_before, a->sam_after,
+        -:  266:            sizeof(slab_stats_automove) * MAX_NUMBER_OF_SLAB_CLASSES);
+        -:  267:    // only make decisions if window has filled once.
+       33:  268:    if (a->window_cur < a->window_size)
+        -:  269:        return;
+        -:  270:
+    #####:  271:    if (wg_sum.pool_high >= a->window_size && !wg_sum.pool_low && youngest != -1) {
+    #####:  272:        if (a->sam_after[youngest].free_chunks <= a->free_mem[youngest]) {
+    #####:  273:            *src = 0;
+    #####:  274:            *dst = youngest;
+        -:  275:        }
+    #####:  276:        struct window_data *wd = get_window_data(a, youngest);
+        -:  277:        // "relaxing" here and below allows us to skip classes which will
+        -:  278:        // never grow or are growing slowly, more quickly finding other
+        -:  279:        // classes which violate the age ratio.
+    #####:  280:        wd->relaxed = 1;
+    #####:  281:    } else if (!too_free && wg_sum.pool_low && oldest != -1) {
+    #####:  282:        *src = oldest;
+    #####:  283:        *dst = 0;
+    #####:  284:    } else if (!too_free && youngest != -1 && oldest != -1 && youngest != oldest) {
+        -:  285:        // if we have a youngest and oldest, and oldest is outside the ratio.
+    #####:  286:        if (youngest_age < ((double)oldest_age * a->max_age_ratio)) {
+    #####:  287:            struct window_data *wd = get_window_data(a, youngest);
+    #####:  288:            wd->relaxed = 1;
+        -:  289:            // only actually assign more memory if it's absorbed what it has
+    #####:  290:            if (a->sam_after[youngest].free_chunks <= a->free_mem[youngest]) {
+    #####:  291:                *src = 0;
+    #####:  292:                *dst = youngest;
+        -:  293:
+        -:  294:            }
+        -:  295:        }
+        -:  296:    }
+        -:  297:    return;
+        -:  298:}
