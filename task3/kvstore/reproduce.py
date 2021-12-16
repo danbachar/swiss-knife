@@ -19,17 +19,23 @@ def log(msg):
     print("\n")
 
 def cloneRocksDB():
-    """Clone rocksdb from git. Remove first if already exist."""
+    """Clone rocksdb from git"""
     if not os.path.exists("rocksdb"):
-        # shutil.rmtree("rocksdb")
+        #shutil.rmtree("rocksdb")
         os.system("git clone https://github.com/facebook/rocksdb.git")
 
-def cloneYCSB():
-    """Clone YCSB from git. Remove first if already exist."""
+def downloadYCSB():
+    """Download YCSB from git"""
     if os.path.exists("YCSB"):
         shutil.rmtree("YCSB")
-    # os.system("git clone http://github.com/brianfrankcooper/YCSB.git")
     os.system("curl -O --location https://github.com/brianfrankcooper/YCSB/releases/download/0.17.0/ycsb-0.17.0.tar.gz && tar xfvz ycsb-0.17.0.tar.gz && mv ycsb-0.17.0 YCSB")
+    
+def cloneYCSB():
+    """Clone YCSB from git"""
+    if os.path.exists("YCSB"):
+        shutil.rmtree("YCSB")
+    os.system("git clone http://github.com/brianfrankcooper/YCSB.git")
+    
     
 # Taken from here https://stackoverflow.com/a/45690594
 def find_free_port():
@@ -55,9 +61,12 @@ def shutdown_memcached():
     
 log("CLONE AND BUILD ROCKSDB. MAY TAKE A WHILE. PLEASE BE PATIENT.")
 cloneRocksDB()
-os.system("cd rocksdb && make static_lib && make shared_lib && cd ../ ")
-log("CLONE YCSB")
-cloneYCSB()
+# build static_lib
+os.system("cd rocksdb && make static_lib && cd ../")
+# build shared_lib
+os.system("cd rocksdb && make shared_lib && cd ../ ")
+log("DOWNLOAD YCSB FOR ROCKSDB")
+downloadYCSB()
 
 log("CREATE A ROCKSDB INSTANCE")
 # build initRocksDB
@@ -75,10 +84,15 @@ PORT = find_free_port()
 # start memcached server
 os.popen(f"memcached -d -p {PORT}")
 
+log("CLONE YCSB FOR MEMCACHED")
+cloneYCSB()
+
 log("BUILD YCSB FOR MEMCACHED")
 os.system("cd YCSB && mvn -pl site.ycsb:memcached-binding -am clean package && cd ../")
 
 log("RUN BENCHMARKS ON MEMCACHED")
+
+# TODO
 
 log("KILL MEMCACHED PROCESSES")
 # shutdown memcached server started by teama
