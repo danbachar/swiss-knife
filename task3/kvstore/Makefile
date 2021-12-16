@@ -20,12 +20,13 @@ all: initRocksDB
 
 initRocksDB: librocksdb initRocksDB.cc
 	$(CXX) $(CXXFLAGS) $@.cc -o$@ rocksdb/librocksdb.a -Irocksdb/include -O2 -std=c++11 $(PLATFORM_LDFLAGS) $(PLATFORM_CXXFLAGS) $(EXEC_LDFLAGS)
+	$$(mkdir -p bin && mv initRocksDB ./bin/initRocksDB)
 
 .c.o:
 	$(CC) $(CFLAGS) -c $< -o $@ -Irocksdb/include
 
 clean:
-	rm -rf ./initRocksDB
+	rm -rf ./bin/*
 
 librocksdb:
 	cd rocksdb && $(MAKE) static_lib
