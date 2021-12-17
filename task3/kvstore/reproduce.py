@@ -8,4 +8,8 @@ if os.path.exists(RESULT_FOLDER):
 os.makedirs(f'{RESULT_FOLDER}/rocksdb')
 os.makedirs(f'{RESULT_FOLDER}/memcached')
 
-from helpers import reproduce_rocksdb, reproduce_memcached, plot
+from helpers import plot
+from helpers import reproduce_rocksdb
+plot("result/rocksdb")
+from helpers import reproduce_memcached
+plot("result/memcached")
