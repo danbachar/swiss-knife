@@ -24,10 +24,13 @@ os.system(f'./bin/initRocksDB {ROCKSDB_PATH}')
 copyfile("custom_workload", "YCSB/workloads/workloadg")
 
 # load and run benchmark on rocksdb instance
-for workload in 'g':
+for workload in 'abcdefg':
     
     for i in range(MIN_TARGET_POW, MAX_TARGET_POW):
         target = pow(2, i)
+        # For workload g the databases don't reach this throughput anyway
+        if workload == 'g' and i > 15:
+            continue
         # run the benchmark for each target
         log(f"RUN BENCHMARKS ON ROCKSDB. WORKLOAD {workload}. TARGET {target} OPS/SEC.")
         os.system(f"""
