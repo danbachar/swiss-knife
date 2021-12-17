@@ -26,6 +26,9 @@ for workload in 'abcdefg':
     
     for i in range(MIN_TARGET_POW, MAX_TARGET_POW):
         target = pow(2, i)
+        # For workload g the databases don't reach this throughput anyway
+        if workload == 'g' and i > 15:
+            continue
         # run the benchmark for each target
         log(f"RUN BENCHMARKS ON MEMCACHED. WORKLOAD {workload}. TARGET {target} OPS/SEC.")
         os.system(f"""

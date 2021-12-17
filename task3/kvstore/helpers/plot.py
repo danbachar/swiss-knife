@@ -32,7 +32,7 @@ def plot(dir):
     f_files = list(filter(lambda x: "_f_" in x, files))
     g_files = list(filter(lambda x: "_g_" in x, files))
 
-    for workload, file_list in [('g', g_files)]:
+    for workload, file_list in [('a', a_files), ('b', b_files), ('c', c_files), ('d', d_files), ('e', e_files), ('f', f_files), ('g', g_files)]:
         df = pd.DataFrame()
         for filename in file_list:
             df = read_result(dir + '/' + filename, df)
