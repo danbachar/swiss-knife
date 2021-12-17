@@ -1,0 +1,18 @@
+# A write only workload for YCSB
+
+recordcount=1000
+operationcount=1000
+workload=site.ycsb.workloads.CoreWorkload
+
+readallfields=true
+
+readproportion=0
+updateproportion=0
+scanproportion=0
+insertproportion=1
+
+requestdistribution=zipfian
+fieldlengthdistribution=constant
+fieldlength=10000
+
+
