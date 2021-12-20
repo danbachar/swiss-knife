@@ -42,8 +42,7 @@ def plot(dir):
         df.plot(x=0, y=df.columns[1:], kind="line")
         plt.savefig(f'{dir}_{workload}_plot.png')
         
-if len(sys.argv) < 2:
-    print("Directory with YCSB results required")
-    exit(1)
+
+if len(sys.argv) >= 2:
+    plot(sys.argv[1])
     
-plot(sys.argv[1])
