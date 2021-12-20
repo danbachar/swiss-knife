@@ -10,6 +10,6 @@ os.makedirs(f'{RESULT_FOLDER}/memcached')
 
 from helpers import plot
 from helpers import reproduce_rocksdb
-plot("result/rocksdb")
+plot.plot("result/rocksdb")
 from helpers import reproduce_memcached
-plot("result/memcached")
+plot.plot("result/memcached")
