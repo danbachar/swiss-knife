@@ -1,0 +1,15 @@
+diff --git a/phoenix++-1.0/include/stddefines.h b/phoenix++-1.0/include/stddefines.h
+old mode 100644
+new mode 100755
+index 49aa3f1..46f2e39
+--- a/phoenix++-1.0/include/stddefines.h
++++ b/phoenix++-1.0/include/stddefines.h
+@@ -37,7 +37,7 @@
+ // Tunables
+ #define L2_CACHE_LINE_SIZE          64
+ #define MR_LOCK_PTMUTEX
+-//#define TIMING
++#define TIMING
+ #define dprintf(...)     //fprintf(stderr, __VA_ARGS__)     // Debug printf
+ 
+ // Thread specific information
