@@ -12,5 +12,6 @@
     in
     stdenv.mkDerivation {
         name = "env";
+        src = ./.;
         buildInputs = with pkgs; [ python3 pkgs.telnet];
-    }  
+    }

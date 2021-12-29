@@ -11,29 +11,16 @@ def start_server(url) -> None:
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     print("Starting iperf server...")
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    pid = os.fork()
-    if pid == 0:
-        process = subprocess.Popen(['iperf', '-s -p', str(PORT), '-B', url],
-                                    stdout=subprocess.PIPE,
-                                    universal_newlines=True)
-
-def start_client(url) -> None:
-    print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    print("Starting iperf client...")
-    print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    process = subprocess.Popen(['iperf', '-c -p', str(PORT), '-B', url],
+    process = subprocess.run(['iperf', '-s', '-B', url],
                                 stdout=subprocess.PIPE,
-                                universal_newlines=True)
-    
-
-
+                                universal_newlines=True)  
 
 def open_port() -> None:
     # using fuser to remove blocking process from using determinated ports
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     print("Opening port...")
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    process = subprocess.Popen(['fuser', '-k', str(PORT)+'/tcp'],
+    process = subprocess.run(['fuser', '-k', '5201/tcp'],
                                 stdout=subprocess.PIPE,
                                 universal_newlines=True)
 
@@ -61,12 +48,11 @@ def nix_build() -> None:
 
 def main() -> None:
     nix_build()
-    open_port()
+    # open_port()
     addrs = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET6])
     ip = list(filter(lambda ip: "swissknife0" in ip, addrs)).pop()
-    URL = f"http://[{ip}]"   
-    start_server(URL)
-    start_client(URL)
+    print(ip)
+    start_server(ip)
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     print("fin")
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
