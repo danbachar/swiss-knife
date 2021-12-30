@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 import subprocess
 import netifaces as ni
 
@@ -41,7 +40,6 @@ def main() -> None:
     open_port()
     addrs = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET6])
     ip = list(filter(lambda ip: "swissknife0" in ip, addrs)).pop()
-    print(ip)
     start_server(ip)
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     print("fin")
