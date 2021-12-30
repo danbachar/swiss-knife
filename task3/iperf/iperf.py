@@ -11,30 +11,17 @@ def start_server(url) -> None:
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     print("Starting iperf server...")
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    process = subprocess.Popen(['iperf', '-s', '-B', url],
+    process = subprocess.run(['iperf', '-s', '-B', url],
                                 stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                universal_newlines=True)
-    
-    while True:
-            output = process.stdout.readline()
-            print(output.strip())
-            # Do something else
-            return_code = process.poll()
-            if return_code is not None:
-                # Process has finished, read rest of the output
-                for output in process.stdout.readlines():
-                    print(output.strip())
-                break
+                                universal_newlines=True)  
 
 def open_port() -> None:
     # using fuser to remove blocking process from using determinated ports
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     print("Opening port...")
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    subprocess.Popen(['fuser', '-k', '5201/tcp'],
+    process = subprocess.run(['fuser', '-k', '5201/tcp'],
                                 stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
                                 universal_newlines=True)
 
     while True:
@@ -49,8 +36,19 @@ def open_port() -> None:
                 print(output.strip())
             break
 
+
+def nix_build() -> None:
+    print("++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("Building Nix environment...")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++")
+    stream = os.popen('nix-shell')
+    print(stream.read())
+
+
+
 def main() -> None:
-    open_port()
+    nix_build()
+    # open_port()
     addrs = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET6])
     ip = list(filter(lambda ip: "swissknife0" in ip, addrs)).pop()
     print(ip)

@@ -11,9 +11,8 @@ def start_client(ip) -> None:
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     print("Starting iperf client...")
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    process = subprocess.run(['iperf', '-c', ip, '-p', str(PORT)],
-                                stdout=subprocess.STDOUT,
-                                universal_newlines=True)
+    subprocess.Popen(['iperf', '-c', ip, '-p', str(PORT)],
+                                universal_newlines=True).wait()
 
 def main() -> None:
     addrs = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET6])
