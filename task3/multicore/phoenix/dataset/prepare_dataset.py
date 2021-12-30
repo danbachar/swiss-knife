@@ -13,9 +13,9 @@ def generate_bmp():
         print(f"Test image {f_names[idx]}.bmp is generated", flush=True)
 
 def generate_text():
-    f_name = ["dickens.txt","dickens-100M.txt","dickens-500M.txt","dickens-1G.txt"]
-    repeatTime = [5,5,2]
-    for base_file in range(3):
+    f_name = ["dickens-20M.txt","dickens-100M.txt","dickens-200M.txt"]
+    repeatTime = [5,2]
+    for base_file in range(2):
         for _ in range(repeatTime[base_file]):
             with open(f_name[base_file]) as f:
                 with open(f_name[base_file+1], "a") as f1:
