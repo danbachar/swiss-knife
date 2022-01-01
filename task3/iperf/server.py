@@ -42,10 +42,36 @@ def open_port() -> None:
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
     print("Opening port...")
     print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    subprocess.Popen(['fuser', '-k', '5201/tcp'],
+    process = subprocess.Popen(['rm', 'res.json'],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 universal_newlines=True)
+    while True:
+            output = process.stdout.readline()
+            print(output.strip())
+            # Do something else
+            return_code = process.poll()
+            if return_code is not None:
+                # Process has finished, read rest of the output
+                for output in process.stdout.readlines():
+                    print(output.strip())
+                break
+    
+    process = subprocess.Popen(['fuser', '-k', '5201/tcp'],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                universal_newlines=True)
+    while True:
+            output = process.stdout.readline()
+            print(output.strip())
+            # Do something else
+            return_code = process.poll()
+            if return_code is not None:
+                # Process has finished, read rest of the output
+                for output in process.stdout.readlines():
+                    print(output.strip())
+                break
+        
 
 def main() -> None:
     open_port()
