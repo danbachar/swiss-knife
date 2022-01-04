@@ -1,0 +1,11 @@
+task3 iperf notes
+
+https://fasterdata.es.net/host-tuning/linux/
+
+
+remember to increase TCP buffer sizes limits on linux:
+sudo sysctl -w net.core.rmem_max=67108864 && # allow testing with buffers up to 64MB 
+sudo sysctl -w net.core.wmem_max=67108864 && # allow testing with buffers up to 64MB 
+sudo sysctl -w net.ipv4.tcp_rmem="4096 87380 33554432" && # increase Linux autotuning TCP buffer limit to 32MB
+sudo sysctl -w net.ipv4.tcp_wmem="4096 65536 33554432" && # increase Linux autotuning TCP buffer limit to 32MB
+sudo sysctl -w net.ipv4.tcp_mtu_probing=1 # recommended for hosts with jumbo frames enabled

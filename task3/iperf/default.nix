@@ -4,7 +4,6 @@
     stdenv = pkgs.stdenv;
     python3 = pkgs.python3.withPackages(p: with p; [
         # python packages here
-        psutil
         netifaces
         pandas
         matplotlib
