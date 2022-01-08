@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!--Phoronix Test Suite v10.6.1-->
+<PhoronixTestSuite>
+  <TestInstallation>
+    <Environment>
+      <Identifier>pts/fs-mark-1.0.3</Identifier>
+      <Version>1.0.3</Version>
+      <CheckSum>c6aacc9b2d99d6454a22933ceecbfc41</CheckSum>
+      <CompilerData>{"compiler-type":"CC","compiler":"gcc","compiler-options":""}</CompilerData>
+      <InstallFootnote></InstallFootnote>
+      <SystemIdentifier>QU1EIEVQWUMgNzcxM1AgNjQtQ29yZV9fTml4T1MgMjEuMTFfX0dDQyAxMC4zLjAgKyBDbGFuZyAxMy4wLjBfX0NDPWdjYztDWFg9ZysrOw==</SystemIdentifier>
+    </Environment>
+    <History>
+      <InstallTime>2021-12-26 13:53:39</InstallTime>
+      <InstallTimeLength>2</InstallTimeLength>
+      <LastRunTime>2021-12-27 11:57:05</LastRunTime>
+      <TimesRun>7</TimesRun>
+      <AverageRunTime>162</AverageRunTime>
+      <LatestRunTime>165</LatestRunTime>
+    </History>
+  </TestInstallation>
+</PhoronixTestSuite>

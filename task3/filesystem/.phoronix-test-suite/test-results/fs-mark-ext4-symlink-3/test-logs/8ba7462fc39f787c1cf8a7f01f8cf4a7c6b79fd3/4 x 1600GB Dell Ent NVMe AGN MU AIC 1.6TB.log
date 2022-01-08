@@ -1,0 +1,80 @@
+#####
+4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB - Run 1
+2021-12-26 14:32:34
+#####
+
+#  ./fs_mark  -d  scratch  -L  5  -s  1048576  -n  5000  -t  4 
+#	Version 3.3, 4 thread(s) starting at Sun Dec 26 14:31:03 2021
+#	Sync method: INBAND FSYNC: fsync() per file in write loop.
+#	Directories:  no subdirectories used
+#	File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#	Files info: size 1048576 bytes, written with an IO size of 16384 bytes per write
+#	App overhead is time in microseconds spent in the test not doing file writing related system calls.
+
+FSUse%        Count         Size    Files/sec     App Overhead
+     4        20000      1048576       1152.0           139865
+     4        40000      1048576       1175.2           138683
+     4        60000      1048576       1142.0           141090
+     4        80000      1048576       1160.7           140916
+     4       100000      1048576       1173.7           141078
+
+#####
+4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB - Run 2
+2021-12-26 14:34:08
+#####
+
+#  ./fs_mark  -d  scratch  -L  5  -s  1048576  -n  5000  -t  4 
+#	Version 3.3, 4 thread(s) starting at Sun Dec 26 14:32:36 2021
+#	Sync method: INBAND FSYNC: fsync() per file in write loop.
+#	Directories:  no subdirectories used
+#	File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#	Files info: size 1048576 bytes, written with an IO size of 16384 bytes per write
+#	App overhead is time in microseconds spent in the test not doing file writing related system calls.
+
+FSUse%        Count         Size    Files/sec     App Overhead
+     4        20000      1048576       1096.4           143502
+     4        40000      1048576       1177.7           141843
+     4        60000      1048576       1174.4           142169
+     4        80000      1048576       1139.3           143514
+     4       100000      1048576       1180.2           142701
+
+#####
+4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB - Run 3
+2021-12-26 14:35:43
+#####
+
+#  ./fs_mark  -d  scratch  -L  5  -s  1048576  -n  5000  -t  4 
+#	Version 3.3, 4 thread(s) starting at Sun Dec 26 14:34:10 2021
+#	Sync method: INBAND FSYNC: fsync() per file in write loop.
+#	Directories:  no subdirectories used
+#	File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#	Files info: size 1048576 bytes, written with an IO size of 16384 bytes per write
+#	App overhead is time in microseconds spent in the test not doing file writing related system calls.
+
+FSUse%        Count         Size    Files/sec     App Overhead
+     4        20000      1048576       1108.8           152826
+     4        40000      1048576       1189.0           141449
+     4        60000      1048576       1153.8           142142
+     4        80000      1048576       1093.6           143585
+     4       100000      1048576       1165.2           142866
+
+#####
+4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB - Run 4
+2021-12-26 14:37:14
+#####
+
+#  ./fs_mark  -d  scratch  -L  5  -s  1048576  -n  5000  -t  4 
+#	Version 3.3, 4 thread(s) starting at Sun Dec 26 14:35:45 2021
+#	Sync method: INBAND FSYNC: fsync() per file in write loop.
+#	Directories:  no subdirectories used
+#	File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#	Files info: size 1048576 bytes, written with an IO size of 16384 bytes per write
+#	App overhead is time in microseconds spent in the test not doing file writing related system calls.
+
+FSUse%        Count         Size    Files/sec     App Overhead
+     4        20000      1048576       1103.0           141901
+     4        40000      1048576       1213.0           141975
+     4        60000      1048576       1185.8           141044
+     4        80000      1048576       1150.4           141148
+     4       100000      1048576       1131.3           141662
+

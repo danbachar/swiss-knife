@@ -1,0 +1,75 @@
+#####
+4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB - Run 1
+2021-12-27 11:55:17
+#####
+
+#  ./fs_mark  -d  scratch  -L  10  -s  1048576  -n  4000  -D  32 
+#	Version 3.3, 1 thread(s) starting at Mon Dec 27 11:54:24 2021
+#	Sync method: INBAND FSYNC: fsync() per file in write loop.
+#	Directories:  Time based hash between directories across 32 subdirectories with 180 seconds per subdirectory.
+#	File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#	Files info: size 1048576 bytes, written with an IO size of 16384 bytes per write
+#	App overhead is time in microseconds spent in the test not doing file writing related system calls.
+
+FSUse%        Count         Size    Files/sec     App Overhead
+     1         4000      1048576        835.1            25280
+     1         8000      1048576        767.2            26394
+     1        12000      1048576        836.6            28403
+     1        16000      1048576        818.6            25589
+     1        20000      1048576        801.2            26087
+     1        24000      1048576        805.8            25911
+     1        28000      1048576        814.3            26005
+     1        32000      1048576        827.0            28203
+     1        36000      1048576        835.8            25228
+     1        40000      1048576        797.2            25487
+
+#####
+4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB - Run 2
+2021-12-27 11:56:11
+#####
+
+#  ./fs_mark  -d  scratch  -L  10  -s  1048576  -n  4000  -D  32 
+#	Version 3.3, 1 thread(s) starting at Mon Dec 27 11:55:19 2021
+#	Sync method: INBAND FSYNC: fsync() per file in write loop.
+#	Directories:  Time based hash between directories across 32 subdirectories with 180 seconds per subdirectory.
+#	File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#	Files info: size 1048576 bytes, written with an IO size of 16384 bytes per write
+#	App overhead is time in microseconds spent in the test not doing file writing related system calls.
+
+FSUse%        Count         Size    Files/sec     App Overhead
+     1         4000      1048576        839.8            25674
+     1         8000      1048576        783.0            25919
+     1        12000      1048576        799.8            25562
+     1        16000      1048576        816.3            27043
+     1        20000      1048576        799.5            25452
+     1        24000      1048576        825.0            26655
+     1        28000      1048576        810.6            26641
+     1        32000      1048576        790.7            26411
+     1        36000      1048576        820.3            25551
+     1        40000      1048576        797.0            26040
+
+#####
+4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB - Run 3
+2021-12-27 11:57:04
+#####
+
+#  ./fs_mark  -d  scratch  -L  10  -s  1048576  -n  4000  -D  32 
+#	Version 3.3, 1 thread(s) starting at Mon Dec 27 11:56:13 2021
+#	Sync method: INBAND FSYNC: fsync() per file in write loop.
+#	Directories:  Time based hash between directories across 32 subdirectories with 180 seconds per subdirectory.
+#	File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#	Files info: size 1048576 bytes, written with an IO size of 16384 bytes per write
+#	App overhead is time in microseconds spent in the test not doing file writing related system calls.
+
+FSUse%        Count         Size    Files/sec     App Overhead
+     1         4000      1048576        823.3            24994
+     1         8000      1048576        824.1            26317
+     1        12000      1048576        814.4            25558
+     1        16000      1048576        834.2            25694
+     1        20000      1048576        832.8            25543
+     1        24000      1048576        819.2            25265
+     1        28000      1048576        836.9            26120
+     1        32000      1048576        772.2            25674
+     1        36000      1048576        790.9            27044
+     1        40000      1048576        792.4            26172
+

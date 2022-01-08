@@ -1,0 +1,8 @@
+Using built-in specs.
+COLLECT_GCC=/nix/store/mrqrvina0lfgrvdzfyri7sw9vxy6pyms-gcc-10.3.0/bin/gcc
+COLLECT_LTO_WRAPPER=/nix/store/mrqrvina0lfgrvdzfyri7sw9vxy6pyms-gcc-10.3.0/libexec/gcc/x86_64-unknown-linux-gnu/10.3.0/lto-wrapper
+Target: x86_64-unknown-linux-gnu
+Configured with: 
+Thread model: posix
+Supported LTO compression algorithms: zlib
+gcc version 10.3.0 (GCC) 

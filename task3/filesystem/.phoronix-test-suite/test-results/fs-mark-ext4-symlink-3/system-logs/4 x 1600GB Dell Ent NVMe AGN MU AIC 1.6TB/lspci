@@ -1,0 +1,696 @@
+Slot:	00:00.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Root Complex [1480]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+
+Slot:	00:00.2
+Class:	IOMMU [0806]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [164f]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+Rev:	01
+
+Slot:	00:01.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	0
+
+Slot:	00:01.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse GPP Bridge [1483]
+Driver:	pcieport
+IOMMUGroup:	1
+
+Slot:	00:02.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	2
+
+Slot:	00:03.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	3
+
+Slot:	00:03.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse GPP Bridge [1483]
+Driver:	pcieport
+IOMMUGroup:	4
+
+Slot:	00:03.2
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse GPP Bridge [1483]
+Driver:	pcieport
+IOMMUGroup:	5
+
+Slot:	00:04.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	6
+
+Slot:	00:05.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	7
+
+Slot:	00:07.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	8
+
+Slot:	00:07.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B] [1484]
+Driver:	pcieport
+IOMMUGroup:	9
+
+Slot:	00:08.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	10
+
+Slot:	00:08.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B] [1484]
+Driver:	pcieport
+IOMMUGroup:	11
+
+Slot:	00:14.0
+Class:	SMBus [0c05]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	FCH SMBus Controller [790b]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+Rev:	61
+Driver:	piix4_smbus
+Module:	i2c_piix4
+Module:	sp5100_tco
+IOMMUGroup:	12
+
+Slot:	00:14.3
+Class:	ISA bridge [0601]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	FCH LPC Bridge [790e]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+Rev:	51
+IOMMUGroup:	12
+
+Slot:	00:18.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [1650]
+IOMMUGroup:	13
+
+Slot:	00:18.1
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [1651]
+IOMMUGroup:	13
+
+Slot:	00:18.2
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [1652]
+IOMMUGroup:	13
+
+Slot:	00:18.3
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [1653]
+Driver:	k10temp
+Module:	k10temp
+IOMMUGroup:	13
+
+Slot:	00:18.4
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [1654]
+IOMMUGroup:	13
+
+Slot:	00:18.5
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [1655]
+IOMMUGroup:	13
+
+Slot:	00:18.6
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [1656]
+IOMMUGroup:	13
+
+Slot:	00:18.7
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [1657]
+IOMMUGroup:	13
+
+Slot:	01:00.0
+Class:	RAID bus controller [0104]
+Vendor:	Broadcom / LSI [1000]
+Device:	MegaRAID SAS-3 3008 [Fury] [005f]
+SVendor:	Dell [1028]
+SDevice:	PERC H330 Mini [1f4b]
+Rev:	02
+Driver:	megaraid_sas
+Module:	megaraid_sas
+IOMMUGroup:	14
+
+Slot:	02:00.0
+Class:	Ethernet controller [0200]
+Vendor:	Broadcom Inc. and subsidiaries [14e4]
+Device:	BCM57416 NetXtreme-E Dual-Media 10G RDMA Ethernet Controller [16d8]
+SVendor:	Dell [1028]
+SDevice:	NetXtreme-E 10Gb SFP+ Adapter [1feb]
+Rev:	01
+Driver:	bnxt_en
+Module:	bnxt_en
+IOMMUGroup:	15
+
+Slot:	02:00.1
+Class:	Ethernet controller [0200]
+Vendor:	Broadcom Inc. and subsidiaries [14e4]
+Device:	BCM57416 NetXtreme-E Dual-Media 10G RDMA Ethernet Controller [16d8]
+SVendor:	Dell [1028]
+SDevice:	NetXtreme-E 10Gb SFP+ Adapter [1feb]
+Rev:	01
+Driver:	bnxt_en
+Module:	bnxt_en
+IOMMUGroup:	15
+
+Slot:	03:00.0
+Class:	Non-Volatile memory controller [0108]
+Vendor:	Samsung Electronics Co Ltd [144d]
+Device:	NVMe SSD Controller PM173X [a824]
+SVendor:	Dell [1028]
+SDevice:	EMC PowerEdge Express Flash Ent NVMe AGN MU AIC Gen4 1.6TB [2044]
+ProgIf:	02
+Driver:	nvme
+Module:	nvme
+NUMANode:	0
+IOMMUGroup:	16
+
+Slot:	04:00.0
+Class:	Non-Essential Instrumentation [1300]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Function [148a]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	17
+
+Slot:	04:00.2
+Class:	Encryption controller [1080]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PTDMA [1498]
+SVendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+SDevice:	Starship/Matisse PTDMA [1498]
+IOMMUGroup:	18
+
+Slot:	05:00.0
+Class:	Non-Essential Instrumentation [1300]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Reserved SPP [1485]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	19
+
+Slot:	05:00.2
+Class:	Encryption controller [1080]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PTDMA [1498]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	20
+
+Slot:	05:00.3
+Class:	USB controller [0c03]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship USB 3.0 Host Controller [148c]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+ProgIf:	30
+Driver:	xhci_hcd
+Module:	xhci_pci
+IOMMUGroup:	21
+
+Slot:	40:00.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Root Complex [1480]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+
+Slot:	40:00.2
+Class:	IOMMU [0806]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [164f]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+Rev:	01
+
+Slot:	40:01.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	22
+
+Slot:	40:01.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse GPP Bridge [1483]
+Driver:	pcieport
+IOMMUGroup:	23
+
+Slot:	40:02.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	24
+
+Slot:	40:03.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	25
+
+Slot:	40:04.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	26
+
+Slot:	40:05.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	27
+
+Slot:	40:07.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	28
+
+Slot:	40:07.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B] [1484]
+Driver:	pcieport
+IOMMUGroup:	29
+
+Slot:	40:08.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	30
+
+Slot:	40:08.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B] [1484]
+Driver:	pcieport
+IOMMUGroup:	31
+
+Slot:	41:00.0
+Class:	Non-Volatile memory controller [0108]
+Vendor:	Samsung Electronics Co Ltd [144d]
+Device:	NVMe SSD Controller PM173X [a824]
+SVendor:	Dell [1028]
+SDevice:	EMC PowerEdge Express Flash Ent NVMe AGN MU AIC Gen4 1.6TB [2044]
+ProgIf:	02
+Driver:	nvme
+Module:	nvme
+NUMANode:	0
+IOMMUGroup:	32
+
+Slot:	42:00.0
+Class:	Non-Essential Instrumentation [1300]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Function [148a]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	33
+
+Slot:	42:00.2
+Class:	Encryption controller [1080]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PTDMA [1498]
+SVendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+SDevice:	Starship/Matisse PTDMA [1498]
+IOMMUGroup:	34
+
+Slot:	43:00.0
+Class:	Non-Essential Instrumentation [1300]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Reserved SPP [1485]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	35
+
+Slot:	43:00.1
+Class:	Encryption controller [1080]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Cryptographic Coprocessor PSPCPP [1486]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	36
+
+Slot:	43:00.2
+Class:	Encryption controller [1080]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PTDMA [1498]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	37
+
+Slot:	43:00.3
+Class:	USB controller [0c03]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship USB 3.0 Host Controller [148c]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+ProgIf:	30
+Driver:	xhci_hcd
+Module:	xhci_pci
+IOMMUGroup:	38
+
+Slot:	80:00.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Root Complex [1480]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+
+Slot:	80:00.2
+Class:	IOMMU [0806]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [164f]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+Rev:	01
+
+Slot:	80:01.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	39
+
+Slot:	80:02.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	40
+
+Slot:	80:03.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	41
+
+Slot:	80:04.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	42
+
+Slot:	80:05.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	43
+
+Slot:	80:07.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	44
+
+Slot:	80:07.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B] [1484]
+Driver:	pcieport
+IOMMUGroup:	45
+
+Slot:	80:08.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	46
+
+Slot:	80:08.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B] [1484]
+Driver:	pcieport
+IOMMUGroup:	47
+
+Slot:	80:08.2
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B] [1484]
+Driver:	pcieport
+IOMMUGroup:	48
+
+Slot:	81:00.0
+Class:	Non-Essential Instrumentation [1300]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Function [148a]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	49
+
+Slot:	81:00.2
+Class:	Encryption controller [1080]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PTDMA [1498]
+SVendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+SDevice:	Starship/Matisse PTDMA [1498]
+IOMMUGroup:	50
+
+Slot:	82:00.0
+Class:	Non-Essential Instrumentation [1300]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Reserved SPP [1485]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	51
+
+Slot:	82:00.2
+Class:	Encryption controller [1080]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PTDMA [1498]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	52
+
+Slot:	83:00.0
+Class:	SATA controller [0106]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	FCH SATA Controller [AHCI mode] [7901]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+Rev:	51
+ProgIf:	01
+Driver:	ahci
+Module:	ahci
+IOMMUGroup:	53
+
+Slot:	c0:00.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Root Complex [1480]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+
+Slot:	c0:00.2
+Class:	IOMMU [0806]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Device [164f]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+Rev:	01
+
+Slot:	c0:01.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	54
+
+Slot:	c0:01.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse GPP Bridge [1483]
+Driver:	pcieport
+IOMMUGroup:	55
+
+Slot:	c0:02.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	56
+
+Slot:	c0:03.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	57
+
+Slot:	c0:04.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	58
+
+Slot:	c0:05.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	59
+
+Slot:	c0:05.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship PCIe GPP Bridge [1:0] [149a]
+Driver:	pcieport
+IOMMUGroup:	59
+
+Slot:	c0:05.2
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship PCIe GPP Bridge [1:0] [149a]
+Driver:	pcieport
+IOMMUGroup:	59
+
+Slot:	c0:07.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	60
+
+Slot:	c0:07.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B] [1484]
+Driver:	pcieport
+IOMMUGroup:	61
+
+Slot:	c0:08.0
+Class:	Host bridge [0600]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Host Bridge [1482]
+IOMMUGroup:	62
+
+Slot:	c0:08.1
+Class:	PCI bridge [0604]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Internal PCIe GPP Bridge 0 to bus[E:B] [1484]
+Driver:	pcieport
+IOMMUGroup:	63
+
+Slot:	c1:00.0
+Class:	Ethernet controller [0200]
+Vendor:	Broadcom Inc. and subsidiaries [14e4]
+Device:	NetXtreme BCM5720 Gigabit Ethernet PCIe [165f]
+SVendor:	Dell [1028]
+SDevice:	PowerEdge R6515/R7515 LOM [08fd]
+Driver:	tg3
+Module:	tg3
+IOMMUGroup:	59
+
+Slot:	c1:00.1
+Class:	Ethernet controller [0200]
+Vendor:	Broadcom Inc. and subsidiaries [14e4]
+Device:	NetXtreme BCM5720 Gigabit Ethernet PCIe [165f]
+SVendor:	Dell [1028]
+SDevice:	PowerEdge R6515/R7515 LOM [08fd]
+Driver:	tg3
+Module:	tg3
+IOMMUGroup:	59
+
+Slot:	c2:00.0
+Class:	PCI bridge [0604]
+Vendor:	PLDA [1556]
+Device:	PCI Express Bridge [be00]
+Rev:	02
+IOMMUGroup:	59
+
+Slot:	c3:00.0
+Class:	VGA compatible controller [0300]
+Vendor:	Matrox Electronics Systems Ltd. [102b]
+Device:	Integrated Matrox G200eW3 Graphics Controller [0536]
+Rev:	04
+Driver:	mgag200
+Module:	mgag200
+IOMMUGroup:	59
+
+Slot:	c4:00.0
+Class:	Ethernet controller [0200]
+Vendor:	Broadcom Inc. and subsidiaries [14e4]
+Device:	BCM57416 NetXtreme-E Dual-Media 10G RDMA Ethernet Controller [16d8]
+SVendor:	Broadcom Inc. and subsidiaries [14e4]
+SDevice:	Device [4161]
+Rev:	01
+Driver:	bnxt_en
+Module:	bnxt_en
+IOMMUGroup:	64
+
+Slot:	c4:00.1
+Class:	Ethernet controller [0200]
+Vendor:	Broadcom Inc. and subsidiaries [14e4]
+Device:	BCM57416 NetXtreme-E Dual-Media 10G RDMA Ethernet Controller [16d8]
+SVendor:	Broadcom Inc. and subsidiaries [14e4]
+SDevice:	Device [4161]
+Rev:	01
+Driver:	bnxt_en
+Module:	bnxt_en
+IOMMUGroup:	64
+
+Slot:	c5:00.0
+Class:	Non-Essential Instrumentation [1300]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PCIe Dummy Function [148a]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	65
+
+Slot:	c5:00.2
+Class:	Encryption controller [1080]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PTDMA [1498]
+SVendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+SDevice:	Starship/Matisse PTDMA [1498]
+IOMMUGroup:	66
+
+Slot:	c6:00.0
+Class:	Non-Essential Instrumentation [1300]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse Reserved SPP [1485]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	67
+
+Slot:	c6:00.2
+Class:	Encryption controller [1080]
+Vendor:	Advanced Micro Devices, Inc. [AMD] [1022]
+Device:	Starship/Matisse PTDMA [1498]
+SVendor:	Dell [1028]
+SDevice:	Device [08fd]
+IOMMUGroup:	68
+

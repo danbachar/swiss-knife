@@ -1,0 +1,1 @@
+initrd=\efi\nixos\45vjnkggb2lwa18xr652bzq56j93hqxz-initrd-linux-5.10.81-initrd.efi init=/nix/store/gcadgicjpq5x7nr8rarvwmwwr4i3nzjq-nixos-system-ryan-21.11.20211205.b1fa84f/init console=ttyS1,115200 console=tty1 panic=1 boot.panic_on_fail loglevel=4

@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<!--Phoronix Test Suite v10.6.1-->
+<PhoronixTestSuite>
+  <Generated>
+    <Title>fs-mark-ext4-symlink-3</Title>
+    <LastModified>2021-12-26 17:37:10</LastModified>
+    <TestClient>Phoronix Test Suite v10.6.1</TestClient>
+    <Description>AMD EPYC 7713P 64-Core testing with a Dell 07PXPY (2.2.4 BIOS) and Matrox G200eW3 on NixOS 21.11 via the Phoronix Test Suite.</Description>
+    <Notes></Notes>
+    <InternalTags></InternalTags>
+    <ReferenceID></ReferenceID>
+    <PreSetEnvironmentVariables></PreSetEnvironmentVariables>
+  </Generated>
+  <System>
+    <Identifier>4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB</Identifier>
+    <Hardware>Processor: AMD EPYC 7713P 64-Core @ 2.00GHz (64 Cores / 128 Threads), Motherboard: Dell 07PXPY (2.2.4 BIOS), Chipset: AMD Starship/Matisse, Memory: 504GB, Disk: 4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB + 600GB AL15SEB060NY, Graphics: Matrox G200eW3, Network: 4 x Broadcom BCM57416 NetXtreme-E Dual-Media 10G RDMA + 2 x Broadcom NetXtreme BCM5720 PCIe</Hardware>
+    <Software>OS: NixOS 21.11, Kernel: 5.10.81 (x86_64), Compiler: GCC 10.3.0 + Clang 13.0.0, File-System: zfs, Screen Resolution: 1024x768</Software>
+    <User>teama</User>
+    <TimeStamp>2021-12-26 14:23:14</TimeStamp>
+    <TestClientVersion></TestClientVersion>
+    <Notes></Notes>
+    <JSON>{"disk-scheduler":"none","cpu-scaling-governor":"acpi-cpufreq performance (Boost: Enabled)","cpu-microcode":"0xa00111d","kernel-extra-details":"Transparent Huge Pages: madvise","environment-variables":"configureFlags= NIX_LDFLAGS_FOR_TARGET=\"-L\/nix\/store\/cxjfbs60gfyfq46hab734ldnfnxlh3ip-gettext-0.21\/lib -L\/nix\/store\/ik2f891ci0nqj1byvf2aa1m4l559r01i-libtool-2.4.6-lib\/lib -L\/nix\/store\/71hf3zwinc25ibvax28llljpikriazzg-popt-1.18\/lib -L\/nix\/store\/j0qjq4hknvf55n73qz71pw4p7wy57c2j-libaio-0.3.112\/lib -L\/nix\/store\/6in9l3cij07lmxzl6pfis6a90hs5wlj1-pcre-8.44\/lib -L\/nix\/store\/vjq3q7dq8vmc13c3py97v27qwizvq7fd-glibc-2.33-59\/lib -L\/nix\/store\/krz4iin6qwx74ipx96fy1khyz08l4j24-glibc-2.33-59-static\/lib\" NIX_CFLAGS_COMPILE_FOR_TARGET=\"-isystem \/nix\/store\/cxjfbs60gfyfq46hab734ldnfnxlh3ip-gettext-0.21\/include -isystem \/nix\/store\/h0xcnd3s178fhl64khajrwkacryi3rnn-libtool-2.4.6\/include -isystem \/nix\/store\/71hf3zwinc25ibvax28llljpikriazzg-popt-1.18\/include -isystem \/nix\/store\/j0qjq4hknvf55n73qz71pw4p7wy57c2j-libaio-0.3.112\/include -isystem \/nix\/store\/hqfkxrz9dxaq8azbzdqc6va29a41jhz7-pcre-8.44-dev\/include\" NIX_CFLAGS_COMPILE=\"-frandom-seed=5i6x895aj5 -isystem \/nix\/store\/cxjfbs60gfyfq46hab734ldnfnxlh3ip-gettext-0.21\/include -isystem \/nix\/store\/h0xcnd3s178fhl64khajrwkacryi3rnn-libtool-2.4.6\/include -isystem \/nix\/store\/71hf3zwinc25ibvax28llljpikriazzg-popt-1.18\/include -isystem \/nix\/store\/j0qjq4hknvf55n73qz71pw4p7wy57c2j-libaio-0.3.112\/include -isystem \/nix\/store\/hqfkxrz9dxaq8azbzdqc6va29a41jhz7-pcre-8.44-dev\/include -isystem \/nix\/store\/cxjfbs60gfyfq46hab734ldnfnxlh3ip-gettext-0.21\/include -isystem \/nix\/store\/h0xcnd3s178fhl64khajrwkacryi3rnn-libtool-2.4.6\/include -isystem \/nix\/store\/71hf3zwinc25ibvax28llljpikriazzg-popt-1.18\/include -isystem \/nix\/store\/j0qjq4hknvf55n73qz71pw4p7wy57c2j-libaio-0.3.112\/include -isystem \/nix\/store\/hqfkxrz9dxaq8azbzdqc6va29a41jhz7-pcre-8.44-dev\/include\" NIX_LDFLAGS=\"-rpath \/nix\/store\/5i6x895aj5az1330pagpghjy3l509wiw-phoronix-env\/lib64 -rpath \/nix\/store\/5i6x895aj5az1330pagpghjy3l509wiw-phoronix-env\/lib  -L\/nix\/store\/cxjfbs60gfyfq46hab734ldnfnxlh3ip-gettext-0.21\/lib -L\/nix\/store\/ik2f891ci0nqj1byvf2aa1m4l559r01i-libtool-2.4.6-lib\/lib -L\/nix\/store\/71hf3zwinc25ibvax28llljpikriazzg-popt-1.18\/lib -L\/nix\/store\/j0qjq4hknvf55n73qz71pw4p7wy57c2j-libaio-0.3.112\/lib -L\/nix\/store\/6in9l3cij07lmxzl6pfis6a90hs5wlj1-pcre-8.44\/lib -L\/nix\/store\/vjq3q7dq8vmc13c3py97v27qwizvq7fd-glibc-2.33-59\/lib -L\/nix\/store\/krz4iin6qwx74ipx96fy1khyz08l4j24-glibc-2.33-59-static\/lib -L\/nix\/store\/cxjfbs60gfyfq46hab734ldnfnxlh3ip-gettext-0.21\/lib -L\/nix\/store\/ik2f891ci0nqj1byvf2aa1m4l559r01i-libtool-2.4.6-lib\/lib -L\/nix\/store\/71hf3zwinc25ibvax28llljpikriazzg-popt-1.18\/lib -L\/nix\/store\/j0qjq4hknvf55n73qz71pw4p7wy57c2j-libaio-0.3.112\/lib -L\/nix\/store\/6in9l3cij07lmxzl6pfis6a90hs5wlj1-pcre-8.44\/lib -L\/nix\/store\/vjq3q7dq8vmc13c3py97v27qwizvq7fd-glibc-2.33-59\/lib -L\/nix\/store\/krz4iin6qwx74ipx96fy1khyz08l4j24-glibc-2.33-59-static\/lib\"","security":"itlb_multihit: Not affected + l1tf: Not affected + mds: Not affected + meltdown: Not affected + spec_store_bypass: Mitigation of SSB disabled via prctl and seccomp + spectre_v1: Mitigation of usercopy\/swapgs barriers and __user pointer sanitization + spectre_v2: Mitigation of Full AMD retpoline IBPB: conditional IBRS_FW STIBP: always-on RSB filling + srbds: Not affected + tsx_async_abort: Not affected"}</JSON>
+  </System>
+  <Result>
+    <Identifier>pts/fs-mark-1.0.3</Identifier>
+    <Title>FS-Mark</Title>
+    <AppVersion>3.3</AppVersion>
+    <Arguments>-L 20 -s 1048576 -n 1000</Arguments>
+    <Description>Test: 1000 Files, 1MB Size</Description>
+    <Scale>Files/s</Scale>
+    <Proportion>HIB</Proportion>
+    <DisplayFormat>BAR_GRAPH</DisplayFormat>
+    <Data>
+      <Entry>
+        <Identifier>4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB</Identifier>
+        <Value>795.8</Value>
+        <RawString>760.1:860.4:803:800:846.6:834.1:788.3:799.4:806.1:708.6:837.5:764.5:738.8:845.6:744.1</RawString>
+        <JSON>{"compiler-options":{"compiler-type":"CC","compiler":"gcc","compiler-options":""},"test-run-times":"28.35:26.66:26.36:26.88:26.37:26.01:26.20:26.37:26.51:26.46:26.04:26.24:26.69:26.42:25.77"}</JSON>
+      </Entry>
+    </Data>
+  </Result>
+  <Result>
+    <Identifier>pts/fs-mark-1.0.3</Identifier>
+    <Title>FS-Mark</Title>
+    <AppVersion>3.3</AppVersion>
+    <Arguments>-L 5 -s 1048576 -n 5000 -t 4</Arguments>
+    <Description>Test: 5000 Files, 1MB Size, 4 Threads</Description>
+    <Scale>Files/s</Scale>
+    <Proportion>HIB</Proportion>
+    <DisplayFormat>BAR_GRAPH</DisplayFormat>
+    <Data>
+      <Entry>
+        <Identifier>4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB</Identifier>
+        <Value>1115.1</Value>
+        <RawString>1152:1096.4:1108.8:1103</RawString>
+        <JSON>{"compiler-options":{"compiler-type":"CC","compiler":"gcc","compiler-options":""},"test-run-times":"89.31:89.92:90.87:89.72"}</JSON>
+      </Entry>
+    </Data>
+  </Result>
+  <Result>
+    <Identifier>pts/fs-mark-1.0.3</Identifier>
+    <Title>FS-Mark</Title>
+    <AppVersion>3.3</AppVersion>
+    <Arguments>-L 10 -s 1048576 -n 4000 -D 32</Arguments>
+    <Description>Test: 4000 Files, 32 Sub Dirs, 1MB Size</Description>
+    <Scale>Files/s</Scale>
+    <Proportion>HIB</Proportion>
+    <DisplayFormat>BAR_GRAPH</DisplayFormat>
+    <Data>
+      <Entry>
+        <Identifier>4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB</Identifier>
+        <Value>771.9</Value>
+        <RawString>659.3:818.3:773:746.7:802:807.3:796.6:787.4:806.3:755.8:749.7:798.8:751.7:753.3</RawString>
+        <JSON>{"compiler-options":{"compiler-type":"CC","compiler":"gcc","compiler-options":""},"test-run-times":"54.96:52.17:52.31:51.98:52.09:52.16:51.79:51.98:51.83:51.96:52.36:52.29:51.71:52.26"}</JSON>
+      </Entry>
+    </Data>
+  </Result>
+  <Result>
+    <Identifier>pts/fs-mark-1.0.3</Identifier>
+    <Title>FS-Mark</Title>
+    <AppVersion>3.3</AppVersion>
+    <Arguments>-L 100 -s 1048576 -n 1000 -S 0</Arguments>
+    <Description>Test: 1000 Files, 1MB Size, No Sync/FSync</Description>
+    <Scale>Files/s</Scale>
+    <Proportion>HIB</Proportion>
+    <DisplayFormat>BAR_GRAPH</DisplayFormat>
+    <Data>
+      <Entry>
+        <Identifier>4 x 1600GB Dell Ent NVMe AGN MU AIC 1.6TB</Identifier>
+        <Value>3126.0</Value>
+        <RawString>3138.2:3144.3:3095.4</RawString>
+        <JSON>{"compiler-options":{"compiler-type":"CC","compiler":"gcc","compiler-options":""},"test-run-times":"38.05:38.08:37.98"}</JSON>
+      </Entry>
+    </Data>
+  </Result>
+</PhoronixTestSuite>

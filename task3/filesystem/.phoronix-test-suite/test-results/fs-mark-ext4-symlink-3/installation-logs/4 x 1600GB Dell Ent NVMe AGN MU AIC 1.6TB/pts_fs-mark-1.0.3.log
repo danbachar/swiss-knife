@@ -1,0 +1,35 @@
+fs_mark-3.3/
+fs_mark-3.3/fs_mark.h
+fs_mark-3.3/plot_test
+fs_mark-3.3/lib_timing.c
+fs_mark-3.3/Makefile
+fs_mark-3.3/fs_mark.c
+fs_mark-3.3/README
+gcc -O2 -Wall -D_FILE_OFFSET_BITS=64   -c -o fs_mark.o fs_mark.c
+gcc -O2 -Wall -D_FILE_OFFSET_BITS=64   -c -o lib_timing.o lib_timing.c
+fs_mark.c: In function ‘cleanup_exit’:
+fs_mark.c:55:35: warning: ‘%d’ directive writing between 1 and 11 bytes into a region of size between 0 and 4095 [-Wformat-overflow=]
+   55 |  sprintf(child_log_file_name, "%s.%d", log_file_name, getpid());
+      |                                   ^~
+fs_mark.c:55:2: note: ‘sprintf’ output between 3 and 4108 bytes into a destination of size 4096
+   55 |  sprintf(child_log_file_name, "%s.%d", log_file_name, getpid());
+      |  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+fs_mark.c: In function ‘process_args’:
+fs_mark.c:145:4: warning: ‘strncpy’ specified bound 4096 equals destination size [-Wstringop-truncation]
+  145 |    strncpy(log_file_name, optarg, PATH_MAX);
+      |    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+fs_mark.c: In function ‘setup’:
+fs_mark.c:463:36: warning: ‘%d’ directive writing between 1 and 11 bytes into a region of size between 0 and 4095 [-Wformat-overflow=]
+  463 |  sprintf(thread_log_file_name, "%s.%d", log_file_name, pid);
+      |                                    ^~
+fs_mark.c:463:2: note: ‘sprintf’ output between 3 and 4108 bytes into a destination of size 4096
+  463 |  sprintf(thread_log_file_name, "%s.%d", log_file_name, pid);
+      |  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+fs_mark.c: In function ‘process_child_log_file’:
+fs_mark.c:949:35: warning: ‘%d’ directive writing between 1 and 11 bytes into a region of size between 0 and 4095 [-Wformat-overflow=]
+  949 |  sprintf(child_log_file_name, "%s.%d", log_file_name, child_pid);
+      |                                   ^~
+fs_mark.c:949:2: note: ‘sprintf’ output between 3 and 4108 bytes into a destination of size 4096
+  949 |  sprintf(child_log_file_name, "%s.%d", log_file_name, child_pid);
+      |  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+gcc -o fs_mark fs_mark.o lib_timing.o

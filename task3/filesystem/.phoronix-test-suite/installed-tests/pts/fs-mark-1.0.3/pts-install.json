@@ -1,0 +1,74 @@
+{
+    "test_installation": {
+        "environment": {
+            "test_identifier": "pts\/fs-mark-1.0.3",
+            "test_version": "1.0.3",
+            "install_checksum": "c6aacc9b2d99d6454a22933ceecbfc41",
+            "system_hash": "QU1EIEVQWUMgNzcxM1AgNjQtQ29yZV9fTml4T1MgMjEuMTFfX0dDQyAxMC4zLjAgKyBDbGFuZyAxMy4wLjBfX0NDPWdjYztDWFg9ZysrOw==",
+            "compiler_data": {
+                "compiler-type": "CC",
+                "compiler": "gcc",
+                "compiler-options": ""
+            },
+            "install_footnote": null
+        },
+        "history": {
+            "install_date_time": "2021-12-26 13:53:39",
+            "last_run_date_time": "2021-12-27 11:57:05",
+            "install_time_length": 2,
+            "times_run": 7,
+            "average_runtime": 162,
+            "latest_runtime": 165,
+            "per_run_times": {
+                "all": {
+                    "values": [
+                        51,
+                        39,
+                        53,
+                        90,
+                        27,
+                        90,
+                        27
+                    ],
+                    "total_times": 7,
+                    "avg": 54
+                },
+                "23f3bcd2e402020a107b6b06bdafebb7943ca11a": {
+                    "values": [
+                        27,
+                        27
+                    ],
+                    "total_times": 2,
+                    "desc": "Test: 1000 Files, 1MB Size",
+                    "avg": 27
+                },
+                "8ba7462fc39f787c1cf8a7f01f8cf4a7c6b79fd3": {
+                    "values": [
+                        90,
+                        90
+                    ],
+                    "total_times": 2,
+                    "desc": "Test: 5000 Files, 1MB Size, 4 Threads",
+                    "avg": 90
+                },
+                "244d3fc1cabe4e11a31ff26c5cfecf4d27223882": {
+                    "values": [
+                        51,
+                        53
+                    ],
+                    "total_times": 2,
+                    "desc": "Test: 4000 Files, 32 Sub Dirs, 1MB Size",
+                    "avg": 52
+                },
+                "6d53ac940f2ace431e2b21511f99af5fbd03c921": {
+                    "values": [
+                        39
+                    ],
+                    "total_times": 1,
+                    "desc": "Test: 1000 Files, 1MB Size, No Sync\/FSync",
+                    "avg": 39
+                }
+            }
+        }
+    }
+}
