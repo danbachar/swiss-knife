@@ -13,3 +13,4 @@ from helpers import reproduce_rocksdb
 plot.plot("result/rocksdb")
 from helpers import reproduce_memcached
 plot.plot("result/memcached")
+os.system("./reproduce_tpcc.sh")
