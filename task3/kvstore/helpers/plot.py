@@ -22,7 +22,7 @@ def read_result(filename, df: pd.DataFrame):
             return values_df
         
 
-def plot(dir):
+def plot_ycsb(dir):
     files = os.listdir(dir)
     a_files = list(filter(lambda x: "_a_" in x, files))
     b_files = list(filter(lambda x: "_b_" in x, files))
@@ -36,13 +36,38 @@ def plot(dir):
         df = pd.DataFrame()
         for filename in file_list:
             df = read_result(dir + '/' + filename, df)
-        print(df)
         df.sort_values(by='[OVERALL] Throughput(ops/sec)' ,inplace=True)
-        print(df)
         df.plot(x=0, y=df.columns[1:], kind="line")
         plt.savefig(f'{dir}_{workload}_plot.png')
         
+def read_tpcc_result(filename, df: pd.DataFrame) -> pd.DataFrame:
+    with open(filename, "r") as f:
+        lines = f.readlines()
+        threads = list(filter(lambda line: "Number of threads:" in line, lines))
+        tps = list(filter(lambda line: "transactions:" in line, lines))
+        values = {
+            "Threads": [0] if len(threads) == 0 else [int(list(filter(lambda x: x != "", threads[0].split(" ")))[-1][:-1])],
+            "Transactions/Sec": [0.0] if len(tps) == 0 else [float(tps[0].split("(")[1].split(" ")[0])],
+        }
+        print("values", values)
+        values_df = pd.DataFrame(values)
+        if not df.empty:
+            df = df.append(values_df)
+            return df
+        else:
+            return values_df    
+        
+def plot_tpcc(dir):
+    files = os.listdir(dir)
+    df = pd.DataFrame()
+    for filename in files:
+        df = read_tpcc_result(os.path.join(dir, filename), df)
+    print(df)
+    df.sort_values(by='Threads' ,inplace=True)
+    df.plot(x=0, y=df.columns[1:], kind="line", logx=True)
+    plt.savefig(f'result/tpcc_plot.png')
+        
 
 if len(sys.argv) >= 2:
-    plot(sys.argv[1])
+    plot_ycsb(sys.argv[1])
     
