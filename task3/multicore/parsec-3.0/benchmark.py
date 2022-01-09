@@ -7,7 +7,7 @@ import subprocess
 import multiprocessing
 import matplotlib.pyplot as plt
 
-programs = ["blackscholes","bodytrack","facesim","ferret","fluidanimate","freqmine","swaptions","vips","x264"] # remove raytrace, as its threaded version blocks 
+programs = ["blackscholes","bodytrack","ferret","fluidanimate","freqmine","swaptions","vips"] # remove raytrace, as its threaded version blocks, also remove facesim and x264, as they meet segment fault 
 inputs   = ["simsmall","simmedium","simlarge"]
 configs  = ["gcc-serial","gcc"]
 resultDir = "/home/result/"
@@ -21,7 +21,7 @@ def benchmark(programs, threads, dataset, base):
         for app in programs:
             print(f'Running app {app} with {threads} thread(s) and {inputs[dataset]} dataset')
             f.write(f'{app},')
-            out = subprocess.check_output(f'parsecmgmt -a run -p {app} -c {config} -i {inputs[dataset]} -n {threads}) | grep real"', shell=True, text=True)
+            out = subprocess.check_output(f'parsecmgmt -a run -p {app} -c {config} -i {inputs[dataset]} -n {threads} | grep real', shell=True, text=True)
             seconds = re.findall(".*m(.*)s.*", out)[0]
             minutes = re.findall("real(.*)m.*", out)[0]
             wallTime = str(int(minutes)*60 + float(seconds))
@@ -77,14 +77,20 @@ def plot(programs, mode):
     width = total_width / n
 
     plt.figure(figsize=(12, 6.5))
+    plt.title("corenum comparison" if mode == "threads" else "dataset comparison")
 
     for i in range(n):
         plt.bar(x, num_lists[i], width=width, label=(legends[i]+" Threads" if mode == "threads" else inputs[legends[i]]))
+        for j in range(len(x)):
+            plt.text(x[j], 0, str(round(num_lists[i][j],1)), ha='center', va='bottom', fontsize=5, color='black')
         for i in range(len(x)):
             x[i] = x[i] + width
 
     x = [i + width for i in list(range(len(num_lists[0])))]
     plt.xticks(x, labels=programs)
+    plt.xlabel("Programs")
+    plt.ylabel("Speed Up")
+
 
     plt.legend()
     plt.savefig('result_t.png' if mode == "threads" else f'result_d.png')

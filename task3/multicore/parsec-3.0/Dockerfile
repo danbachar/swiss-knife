@@ -32,4 +32,6 @@ RUN apt-get update && apt-get install -y \
 
 RUN /bin/bash -c "source env.sh && ./autorun.sh"
 COPY benchmark.py ./
-CMD /bin/bash -c "source env.sh && python3 benchmark.py"
+COPY entrypoint.sh /
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
+CMD python3 -u benchmark.py

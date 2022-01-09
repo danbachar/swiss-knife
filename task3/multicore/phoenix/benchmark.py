@@ -98,6 +98,7 @@ def plot(programs, mode):
     width = total_width / n
 
     plt.figure(figsize=(12, 6.5))
+    plt.title("corenum comparison" if mode == "threads" else "dataset comparison")
     plt.ylim(0, 80 if mode == "threads" else 50)
 
     for i in range(n):
