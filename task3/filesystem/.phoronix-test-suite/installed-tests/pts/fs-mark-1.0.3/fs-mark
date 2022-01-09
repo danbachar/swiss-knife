@@ -1,0 +1,6 @@
+#!/bin/sh
+cd fs_mark-3.3/
+mkdir scratch
+./fs_mark $@ > $LOG_FILE 2>&1
+echo $? > ~/test-exit-status
+rm -rf scratch

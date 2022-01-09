@@ -1,0 +1,17 @@
+
+#  ./fs_mark  -d  scratch  -L  10  -s  1048576  -n  4000  -D  32 
+#	Version 3.3, 1 thread(s) starting at Sun Dec 26 14:20:56 2021
+#	Sync method: INBAND FSYNC: fsync() per file in write loop.
+#	Directories:  Time based hash between directories across 32 subdirectories with 180 seconds per subdirectory.
+#	File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#	Files info: size 1048576 bytes, written with an IO size of 16384 bytes per write
+#	App overhead is time in microseconds spent in the test not doing file writing related system calls.
+
+FSUse%        Count         Size    Files/sec     App Overhead
+     4         4000      1048576        769.5            26781
+     4         8000      1048576        822.9            26084
+     4        12000      1048576        794.8            25624
+     4        16000      1048576        760.7            25333
+     4        20000      1048576        799.7            25750
+     4        24000      1048576        787.0            25830
+     4        28000      1048576        777.3            25766

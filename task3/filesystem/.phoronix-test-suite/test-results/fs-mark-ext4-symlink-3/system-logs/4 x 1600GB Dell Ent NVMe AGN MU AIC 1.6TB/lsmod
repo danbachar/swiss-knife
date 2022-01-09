@@ -1,0 +1,166 @@
+Module                  Size  Used by
+cmac                   16384  0
+algif_hash             16384  0
+bluetooth             614400  0
+ecdh_generic           16384  1 bluetooth
+rfkill                 24576  2 bluetooth
+ecc                    32768  1 ecdh_generic
+nhpoly1305_avx2        16384  0
+nhpoly1305_sse2        16384  0
+nhpoly1305             16384  2 nhpoly1305_avx2,nhpoly1305_sse2
+chacha_generic         16384  0
+chacha_x86_64          28672  0
+libchacha              16384  2 chacha_x86_64,chacha_generic
+adiantum               16384  0
+libpoly1305            16384  2 adiantum,nhpoly1305
+serpent_avx2           49152  0
+serpent_avx_x86_64     49152  1 serpent_avx2
+serpent_sse2_x86_64    53248  0
+serpent_generic        32768  3 serpent_avx2,serpent_sse2_x86_64,serpent_avx_x86_64
+ecb                    16384  0
+algif_skcipher         16384  0
+af_alg                 24576  2 algif_hash,algif_skcipher
+tcp_diag               16384  0
+inet_diag              24576  1 tcp_diag
+btrfs                1474560  1
+blake2b_generic        20480  0
+xor                    24576  1 btrfs
+raid6_pq              118784  1 btrfs
+ext4                  819200  1
+crc16                  16384  2 bluetooth,ext4
+mbcache                16384  1 ext4
+jbd2                  126976  1 ext4
+nft_chain_nat          16384  3
+xt_MASQUERADE          20480  2
+nf_nat                 45056  2 nft_chain_nat,xt_MASQUERADE
+nf_conntrack_netlink    53248  0
+xfrm_user              45056  1
+xfrm_algo              16384  1 xfrm_user
+xt_addrtype            16384  3
+br_netfilter           32768  0
+af_packet              53248  16
+nls_iso8859_1          16384  1
+nls_cp437              20480  1
+vfat                   20480  1
+fat                    81920  1 vfat
+dell_smbios            28672  0
+evdev                  24576  2
+dell_wmi_descriptor    20480  1 dell_smbios
+wmi_bmof               16384  0
+mac_hid                16384  0
+dcdbas                 20480  1 dell_smbios
+amd64_edac_mod         32768  0
+edac_mce_amd           32768  1 amd64_edac_mod
+edac_core              57344  2 amd64_edac_mod
+crc32_pclmul           16384  0
+ghash_clmulni_intel    16384  0
+aesni_intel           368640  0
+libaes                 16384  2 bluetooth,aesni_intel
+crypto_simd            16384  4 serpent_avx2,serpent_sse2_x86_64,aesni_intel,serpent_avx_x86_64
+cryptd                 20480  2 crypto_simd,ghash_clmulni_intel
+glue_helper            16384  4 serpent_avx2,serpent_sse2_x86_64,aesni_intel,serpent_avx_x86_64
+rapl                   16384  0
+deflate                16384  1
+efi_pstore             16384  0
+ip6_tables             32768  2
+xt_conntrack           16384  3
+nf_conntrack          143360  4 xt_conntrack,nf_nat,nf_conntrack_netlink,xt_MASQUERADE
+nf_defrag_ipv6         24576  1 nf_conntrack
+nf_defrag_ipv4         16384  1 nf_conntrack
+ip6t_rpfilter          16384  1
+ipt_rpfilter           16384  1
+xt_pkttype             16384  2
+nf_log_ipv6            16384  1
+nf_log_ipv4            16384  1
+nf_log_common          16384  2 nf_log_ipv4,nf_log_ipv6
+xt_LOG                 20480  2
+xt_tcpudp              20480  21
+nft_compat             20480  38
+nft_counter            16384  68
+nf_tables             229376  163 nft_compat,nft_counter,nft_chain_nat
+libcrc32c              16384  4 nf_conntrack,nf_nat,btrfs,nf_tables
+crc32c_generic         16384  0
+nfnetlink              16384  4 nft_compat,nf_conntrack_netlink,nf_tables
+sch_fq_codel           20480  36
+atkbd                  32768  0
+libps2                 20480  1 atkbd
+serio                  24576  1 atkbd
+ipmi_ssif              36864  0
+mgag200                36864  0
+tg3                   184320  0
+drm_kms_helper        212992  3 mgag200
+i2c_algo_bit           16384  1 mgag200
+libphy                102400  1 tg3
+fb_sys_fops            16384  1 drm_kms_helper
+acpi_ipmi              20480  0
+sp5100_tco             20480  0
+syscopyarea            16384  1 drm_kms_helper
+ipmi_si                65536  1
+ptp                    28672  1 tg3
+watchdog               24576  1 sp5100_tco
+sysfillrect            16384  1 drm_kms_helper
+ipmi_devintf           20480  0
+sysimgblt              16384  1 drm_kms_helper
+bnxt_en               278528  0
+pps_core               24576  1 ptp
+k10temp                16384  0
+hed                    16384  0
+i2c_piix4              28672  0
+wmi                    28672  3 wmi_bmof,dell_smbios,dell_wmi_descriptor
+ipmi_msghandler        69632  4 ipmi_devintf,ipmi_si,acpi_ipmi,ipmi_ssif
+acpi_power_meter       20480  0
+tiny_power_button      16384  0
+acpi_cpufreq           28672  0
+button                 24576  0
+loop                   36864  0
+tun                    53248  2
+tap                    28672  0
+macvlan                28672  0
+veth                   32768  0
+bridge                241664  1 br_netfilter
+stp                    16384  1 bridge
+llc                    16384  2 bridge,stp
+kvm_amd                98304  0
+kvm                   794624  1 kvm_amd
+irqbypass              16384  1 kvm
+drm                   512000  3 drm_kms_helper,mgag200
+pstore                 28672  2 efi_pstore
+agpgart                40960  1 drm
+fuse                  135168  1
+backlight              20480  1 drm
+i2c_core               86016  6 drm_kms_helper,i2c_algo_bit,mgag200,i2c_piix4,ipmi_ssif,drm
+configfs               49152  1
+efivarfs               16384  1
+ip_tables              28672  1
+x_tables               40960  11 xt_conntrack,ip6t_rpfilter,nft_compat,xt_LOG,xt_tcpudp,xt_addrtype,ip6_tables,ipt_rpfilter,xt_pkttype,ip_tables,xt_MASQUERADE
+autofs4                49152  0
+sd_mod                 53248  0
+xhci_pci               20480  0
+ahci                   40960  0
+xhci_pci_renesas       20480  1 xhci_pci
+libahci                36864  1 ahci
+xhci_hcd              266240  1 xhci_pci
+libata                249856  2 libahci,ahci
+megaraid_sas          172032  0
+crc32c_intel           24576  4
+nvme                   45056  0
+usbcore               278528  2 xhci_hcd,xhci_pci
+nvme_core             106496  5 nvme
+scsi_mod              229376  3 sd_mod,megaraid_sas,libata
+t10_pi                 16384  2 sd_mod,nvme_core
+crc_t10dif             20480  1 t10_pi
+crct10dif_generic      16384  0
+usb_common             16384  2 xhci_hcd,usbcore
+crct10dif_pclmul       16384  1
+crct10dif_common       16384  3 crct10dif_generic,crc_t10dif,crct10dif_pclmul
+rtc_cmos               28672  1
+dm_mod                139264  22
+zfs                  3633152  13
+zunicode              335872  1 zfs
+zzstd                 577536  1 zfs
+zlua                  176128  1 zfs
+zavl                   16384  1 zfs
+icp                   307200  1 zfs
+zcommon                81920  2 zfs,icp
+znvpair                73728  2 zfs,zcommon
+spl                    86016  6 zfs,icp,zzstd,znvpair,zcommon,zavl
