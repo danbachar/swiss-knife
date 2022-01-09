@@ -11,7 +11,8 @@ RUN git clone https://github.com/kozyraki/phoenix.git
 ADD patch ./phoenix/patch
 RUN cd phoenix/patch \
     && patch -p1 < 01-Makefile.patch -d ~/phoenix \
-    && patch -p1 < 02-stddefines.patch -d ~/phoenix
+    && patch -p1 < 02-stddefines.patch -d ~/phoenix \
+    && patch -p1 < 03-matrix_mult.patch -d ~/phoenix
 
 WORKDIR /root/phoenix/phoenix++-1.0
 RUN mkdir lib \
