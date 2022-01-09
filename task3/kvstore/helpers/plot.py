@@ -43,11 +43,13 @@ def plot_ycsb(dir):
 def read_tpcc_result(filename, df: pd.DataFrame) -> pd.DataFrame:
     with open(filename, "r") as f:
         lines = f.readlines()
-        threads = list(filter(lambda line: "Number of threads:" in line, lines))
+        # threads = list(filter(lambda line: "Number of threads:" in line, lines))
+        latency = list(filter(lambda line: "avg:" in line, lines))
         tps = list(filter(lambda line: "transactions:" in line, lines))
         values = {
-            "Threads": [0] if len(threads) == 0 else [int(list(filter(lambda x: x != "", threads[0].split(" ")))[-1][:-1])],
+            # "Threads": [0] if len(threads) == 0 else [int(list(filter(lambda x: x != "", threads[0].split(" ")))[-1][:-1])],
             "Transactions/Sec": [0.0] if len(tps) == 0 else [float(tps[0].split("(")[1].split(" ")[0])],
+            "Avg. Latency (ms)": [0.0] if len(latency) == 0 else [float(list(filter(lambda x: x != "", latency[0].split(" ")))[-1][:-1])]
         }
         print("values", values)
         values_df = pd.DataFrame(values)
@@ -63,8 +65,8 @@ def plot_tpcc(dir):
     for filename in files:
         df = read_tpcc_result(os.path.join(dir, filename), df)
     print(df)
-    df.sort_values(by='Threads' ,inplace=True)
-    df.plot(x=0, y=df.columns[1:], kind="line", logx=True)
+    df.sort_values(by='Transactions/Sec' ,inplace=True)
+    df.plot(x=0, y=df.columns[1:], kind="line")
     plt.savefig(f'result/tpcc_plot.png')
         
 
