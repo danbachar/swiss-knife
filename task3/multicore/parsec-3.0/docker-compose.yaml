@@ -1,0 +1,9 @@
+version: "3.3"
+services:
+  base:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: parsec-instance 
+    volumes:
+      - ./result:/home/result

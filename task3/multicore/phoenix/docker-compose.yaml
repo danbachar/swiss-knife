@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  base:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: phoenix-instance 
+    volumes:
+      - ./dataset:/root/dataset
+      - ./result:/root/result

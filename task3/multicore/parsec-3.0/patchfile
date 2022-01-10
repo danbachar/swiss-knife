@@ -1,0 +1,123 @@
+diff --git a/pkgs/apps/ferret/src/benchmark/ferret-serial.c b/pkgs/apps/ferret/src/benchmark/ferret-serial.c
+index 7263418..f14f3e7 100644
+--- a/pkgs/apps/ferret/src/benchmark/ferret-serial.c
++++ b/pkgs/apps/ferret/src/benchmark/ferret-serial.c
+@@ -34,6 +34,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ 
+ #define MAXR	100
+ #define IMAGE_DIM	14
++#define HUGE            3.40282347e+38F
+ 
+ const char *db_dir = NULL;
+ const char *table_name = NULL;
+diff --git a/config/gcc.bldconf b/config/gcc.bldconf
+index 144f623..8a6428b 100644
+--- a/config/gcc.bldconf
++++ b/config/gcc.bldconf
+@@ -72,7 +72,7 @@ PORTABILITY_FLAGS="-static-libgcc -Wl,--hash-style=both,--as-needed"
+ 
+ # Arguments to use
+ export CFLAGS=" -O3 -g -funroll-loops -fprefetch-loop-arrays ${PORTABILITY_FLAGS}"
+-export CXXFLAGS="-O3 -g -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions ${PORTABILITY_FLAGS}"
++export CXXFLAGS="-O3 -g --std=c++03 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions ${PORTABILITY_FLAGS}"
+ export CPPFLAGS=""
+ export CXXCPPFLAGS=""
+ export LDFLAGS="-L${CC_HOME}/lib64 -L${CC_HOME}/lib"
+diff --git a/pkgs/apps/ferret/src/src/lsh/LSH.h b/pkgs/apps/ferret/src/src/lsh/LSH.h
+index e790771..19eb027 100644
+--- a/pkgs/apps/ferret/src/src/lsh/LSH.h
++++ b/pkgs/apps/ferret/src/src/lsh/LSH.h
+@@ -6,6 +6,8 @@
+ #include <cass_hash.h>
+ #include <cass_bitmap.h>
+ 
++#define HUGE			3.40282347e+38F
++
+ typedef struct {
+ 	int a_step, b_step;
+ 	double a_min, a_max;
+
+diff --git a/pkgs/netapps/netferret/src/server/benchmark/ferret-pthreads.c b/pkgs/netapps/netferret/src/server/benchmark/ferret-pthreads.c
+index 0f700e8..3f27247 100644
+--- a/pkgs/netapps/netferret/src/server/benchmark/ferret-pthreads.c
++++ b/pkgs/netapps/netferret/src/server/benchmark/ferret-pthreads.c
+@@ -54,6 +54,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ #define DEFAULT_DEPTH	25
+ #define MAXR	100
+ #define IMAGE_DIM	14
++#define HUGE		3.40282347e+38F
+ 
+ const char *db_dir = NULL;
+ const char *table_name = NULL;
+
+diff --git a/pkgs/netapps/netferret/src/server/src/lsh/LSH.h b/pkgs/netapps/netferret/src/server/src/lsh/LSH.h
+index e790771..4b9f719 100644
+--- a/pkgs/netapps/netferret/src/server/src/lsh/LSH.h
++++ b/pkgs/netapps/netferret/src/server/src/lsh/LSH.h
+@@ -6,6 +6,8 @@
+ #include <cass_hash.h>
+ #include <cass_bitmap.h>
+ 
++#define HUGE		3.40282347e+38F
++
+ typedef struct {
+ 	int a_step, b_step;
+ 	double a_min, a_max;
+
+diff --git a/pkgs/apps/x264/parsec/gcc-pthreads.bldconf b/pkgs/apps/x264/parsec/gcc-pthreads.bldconf
+index 7bf67b0..8286f5a 100644
+--- a/pkgs/apps/x264/parsec/gcc-pthreads.bldconf
++++ b/pkgs/apps/x264/parsec/gcc-pthreads.bldconf
+@@ -35,5 +35,5 @@ build_env="PATH=\"${PARSECDIR}/pkgs/tools/yasm/inst/${PARSECPLAT}/bin:${PATH}\""
+ build_inplace="TRUE"
+ 
+ # Arguments to pass to the configure script, if it exists
+-build_conf="--enable-pthread --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
++build_conf="--enable-pic --enable-pthread --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
+
+diff --git a/pkgs/apps/x264/parsec/gcc-serial.bldconf b/pkgs/apps/x264/parsec/gcc-serial.bldconf
+index b122bda..085dab4 100644
+--- a/pkgs/apps/x264/parsec/gcc-serial.bldconf
++++ b/pkgs/apps/x264/parsec/gcc-serial.bldconf
+@@ -3,5 +3,5 @@
+ source ${PARSECDIR}/pkgs/apps/x264/parsec/gcc.bldconf
+ 
+ # Override configuration
+-build_conf="--disable-pthread --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
++build_conf="--enable-pic --disable-pthread --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\"" 
+
+diff --git a/pkgs/apps/raytrace/src/RTTL/test/TestRTVec/TestRTVec.cxx b/pkgs/apps/raytrace/src/RTTL/test/TestRTVec/TestRTVec.cxx
+index 638db26..b6bf2eb 100644
+--- a/pkgs/apps/raytrace/src/RTTL/test/TestRTVec/TestRTVec.cxx
++++ b/pkgs/apps/raytrace/src/RTTL/test/TestRTVec/TestRTVec.cxx
+@@ -111,18 +111,6 @@ void test4() {
+ 
+ }
+ 
+-int pow(int a, int n) {
+-    // versions for float/double are defined in stdlib.
+-    int r = a;
+-    for (int i = 1; i < n; i++) r *= a;
+-    return r;
+-}
+-#if defined(__GNUC__) || defined(__INTEL_COMPILER)
+-int pow(double a, int n) {
+-    return pow(a, (double)n);
+-}
+-#endif
+-
+ template<int N, typename DataType>
+ void testbox() {
+     typedef RTVec_t<N, DataType> rtvec;
+diff --git a/pkgs/apps/ferret/src/benchmark/ferret-pthreads.c b/pkgs/apps/ferret/src/benchmark/ferret-pthreads.c
+index 06b3d9c..55e95b6 100644
+--- a/pkgs/apps/ferret/src/benchmark/ferret-pthreads.c
++++ b/pkgs/apps/ferret/src/benchmark/ferret-pthreads.c
+@@ -40,6 +40,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ #define DEFAULT_DEPTH	25
+ #define MAXR	100
+ #define IMAGE_DIM	14
++#define HUGE            3.40282347e+38F
+ 
+ const char *db_dir = NULL;
+ const char *table_name = NULL;

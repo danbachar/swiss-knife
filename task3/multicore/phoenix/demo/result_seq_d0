@@ -1,0 +1,8 @@
+apps,walltime
+hist-seq,0.28
+kmeans-seq,0.255
+lreg-seq,0.029
+matrix_mult_serial,0.071
+pca-seq,0.005
+string_match_serial,0.556
+wordcount_serial,0.602
