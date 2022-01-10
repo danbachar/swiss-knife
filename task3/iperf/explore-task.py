@@ -38,11 +38,15 @@ def start_server(host, port, buffer_length) -> int:
 
     if isinstance(ip, ipaddress.IPv4Address):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, 25, bytes('swissknife0'.encode()))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
             speed = server_loop(s,host, port, buffer_length)
     elif isinstance(ip, ipaddress.IPv6Address):
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, 25, bytes('swissknife0'.encode()))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
             speed = server_loop(s,host, port, buffer_length)
     else: print(f'address neither IPv4 or v6: {ip}')
     prefix, normalizedSpeed = get_prefix(speed)
@@ -51,7 +55,7 @@ def start_server(host, port, buffer_length) -> int:
     sys.exit(1)
     
 
-def start_client(host, port, buffer_size, duration) -> int:
+def start_client(host, port, buffer_length, duration) -> int:
     childpid = os.fork()
     if childpid != 0:
         return childpid
@@ -59,51 +63,62 @@ def start_client(host, port, buffer_size, duration) -> int:
 
     if isinstance(ip, ipaddress.IPv4Address):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, 25, bytes('swissknife0'.encode()))
-            client_loop(s, host, port, buffer_size, duration)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
+            client_loop(s, host, port, buffer_length, duration)
             
     elif isinstance(ip, ipaddress.IPv6Address):
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, 25, bytes('swissknife0'.encode()))
-            client_loop(s, host, port, buffer_size, duration)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
+            client_loop(s, host, port, buffer_length, duration)
     sys.exit(1)
 
 def server_loop(sock: socket.socket, host, port, buffer_length) -> float:
     sock.bind((host, port))
     sock.listen()
-    conn, addr = sock.accept()
+    conn, _ = sock.accept()
     received = 0
-    start= time.time()
-    global end
+    firstReceive = True
     with conn:
         while True:
             data = conn.recv(buffer_length)
-            if not data:
+            if firstReceive:
+                firstReceive = False
+                start = time.time()
+            if len(data) == 0:
                 end = time.time()
                 break
-            received += len(data)
+            length = len(data)
+            #print(f'{length1} {length}')
+            #if length < buffer_length:
+            #    print(f'len of data < buffer length: {length}')
+            received += length#buffer_length
     return received / (end-start)
     
 def client_loop(sock: socket.socket, host, port, buffer_length, duration): 
-    buffer = [0b1] * buffer_length
+    buffer = [1] * buffer_length
+    b = bytes(buffer)
     sock.connect((host, port))
-    start_time = time.time()
-    total_sent = 0
-    while time.time() - start_time < duration:
-        current_interval_start = time.time()
-        start = 0
-        while time.time() - current_interval_start < 1:
-            b = bytes(buffer[start:])
-            ret = sock.send(b, 0)
-            # if ret != len(buffer[0:]):
-                # remaining = len(bytes(buffer)) - ret
-            #print(f'sent {ret} bytes')
-            if ret > 0:
-                start += ret
-                total_sent += ret
-                if start >= len(b):
-                    start = 0
-            else: start = 0
+    end_time = time.time() + duration
+    while time.time() < end_time:
+        sock.send(b)
+        # current_interval_start = time.time()
+        #start = 0
+        # while time.time() - current_interval_start < 1:
+            #b = bytes(buffer[start:])
+            
+            #total_sent += ret
+            #if ret != len(buffer[0:]):
+            #    remaining = len(bytes(buffer)) - ret
+            #if ret > 0:
+            #    start += ret
+            #    total_sent += ret
+            #    if start >= len(b):
+            #        start = 0
+            #else: start = 0
     sock.close()
         
 def open_port(port) -> None:
@@ -136,11 +151,11 @@ def main(argv) -> None:
         print("Syntax Error.")
         sys.exit(2)
 
-    #addrs = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET]) # IPv6 doesn't work yet
-    #mapped = map(lambda addr: print(addr), addrs)
-    #ip = list(filter(lambda ip: "swissknife0" in ip, addrs)).pop()
+    addrs = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET]) # IPv6 doesn't work yet
+    addrsv6 = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET6]) # IPv6 doesn't work yet
+    ip = list(filter(lambda ip: "swissknife0" in ip, list(addrs)+list(addrsv6))).pop()
     #ip = list(addrs).pop()
-    ip = '169.254.68.39' # TODO: hard coded IP address
+    #ip = '169.254.68.39'
     global port
     global plot_filename
     global data_filename
