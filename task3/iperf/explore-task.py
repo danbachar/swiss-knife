@@ -31,46 +31,46 @@ def get_prefix(speed):
         prefix = 'holybits/s'
     return prefix, speed
 
+def create_client_socket(ip, port, buffer_length, duration) -> float:
+    if isinstance(ip, ipaddress.IPv4Address):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    elif isinstance(ip, ipaddress.IPv6Address):
+        s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
+    
+    client_loop(s, ip, port, buffer_length, duration)
+
 def start_server(host, port, buffer_length, connections) -> int:
     childpid = os.fork()
     if childpid != 0:
         return childpid
     ip = ipaddress.ip_address(host)
     
+    global pool
+    global speed
+    
+    if isinstance(ip, ipaddress.IPv4Address):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    elif isinstance(ip, ipaddress.IPv6Address):
+        s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
+    s.bind((str(ip), port))
+    s.listen()
+    
     if connections > 1:
         pool = ThreadPool(processes=connections)
         speeds = []
-
-    if isinstance(ip, ipaddress.IPv4Address):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
-            
-            if connections > 1: 
-                # parallel mode, create threads
-                for i in range(connections+1):
-                    #t = Thread(target=server_loop, args=(s,host, port, buffer_length))
-                    speeds.append(pool.apply_async(server_loop, (s,host, port+i, buffer_length)))
-            else: 
-                speed = server_loop(s,host, port, buffer_length)
-    elif isinstance(ip, ipaddress.IPv6Address):
-        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
-            
-            if connections > 1: 
-                # parallel mode, create threads
-                for i in range(connections+1):
-                    #t = Thread(target=server_loop, args=(s,host, port, buffer_length))
-                    speeds.append(pool.apply_async(server_loop, (s,host, port+i, buffer_length)))
-            else: 
-                speed = server_loop(s,host, port, buffer_length)
-    else: print(f'address neither IPv4 or v6: {ip}')
-    if connections > 1:
+        for _ in range(connections):
+            speeds.append(pool.apply_async(server_loop, (s, buffer_length)))
         speed = sum(map(lambda s: s.get(), speeds))
         pool.close()
+    else:
+        speed = server_loop(s, buffer_length)
     prefix, normalizedSpeed = get_prefix(speed)
     print(f'Speed achieved is {normalizedSpeed} {prefix}')
     sys.exit(1)
@@ -84,38 +84,30 @@ def start_client(host, port, buffer_length, duration, connections) -> int:
     if connections > 1:
         pool = ThreadPool(processes=connections)
         speeds = []
-    
-    if isinstance(ip, ipaddress.IPv4Address):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
-            if connections > 1: 
-                # parallel mode, create threads
-                for i in range(connections+1):
-                    speeds.append(pool.apply_async(client_loop, (s, host, port+i, buffer_length, duration)))
-            else: 
+        for i in range(connections):
+            pool.apply_async(create_client_socket, (ip, port, buffer_length, duration)).get()
+            # speeds.append(pool.apply_async(client_loop, (s, host, port+i, buffer_length, duration)))   
+    else:
+        if isinstance(ip, ipaddress.IPv4Address):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
                 client_loop(s, host, port, buffer_length, duration)
-            
-    elif isinstance(ip, ipaddress.IPv6Address):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
-            if connections > 1: 
-                # parallel mode, create threads
-                for i in range(connections+1):
-                    speeds.append(pool.apply_async(client_loop, (s, host, port+i, buffer_length, duration)))
-            else: 
+                
+        elif isinstance(ip, ipaddress.IPv6Address):
+            with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
                 client_loop(s, host, port, buffer_length, duration)
-    if connections > 1:
-        pool.close()
     sys.exit(1)
 
-def server_loop(sock: socket.socket, host, port, buffer_length) -> float:
-    print(f'Opening server on {host}:{port}')
-    sock.bind((host, port))
-    sock.listen()
+def server_loop(sock: socket.socket, buffer_length) -> float:
+    # print(f'Opening server on {host}:{port}')
+    # print(sock)
+    # sock.bind((host, port))
+    # sock.listen()
     conn, _ = sock.accept()
     received = 0
     firstReceive = True
@@ -125,7 +117,7 @@ def server_loop(sock: socket.socket, host, port, buffer_length) -> float:
             if firstReceive:
                 firstReceive = False
                 start = time.time()
-            if len(data) == 0:
+            if not data:
                 end = time.time()
                 break
             length = len(data)
@@ -138,26 +130,10 @@ def server_loop(sock: socket.socket, host, port, buffer_length) -> float:
 def client_loop(sock: socket.socket, host, port, buffer_length, duration): 
     buffer = [1] * buffer_length
     b = bytes(buffer)
-    print(f'connecting to {host}:{port}')
-    sock.connect((host, port))
-    
+    sock.connect((str(host), port))
     end_time = time.time() + duration
     while time.time() < end_time:
         sock.send(b)
-        # current_interval_start = time.time()
-        #start = 0
-        # while time.time() - current_interval_start < 1:
-            #b = bytes(buffer[start:])
-            
-            #total_sent += ret
-            #if ret != len(buffer[0:]):
-            #    remaining = len(bytes(buffer)) - ret
-            #if ret > 0:
-            #    start += ret
-            #    total_sent += ret
-            #    if start >= len(b):
-            #        start = 0
-            #else: start = 0
     sock.close()
         
 def open_port(port) -> None:
