@@ -7,8 +7,58 @@ import sys
 import time
 import getopt
 import ipaddress
-from multiprocessing.pool import ThreadPool
+from queue import Queue
+from threading import Thread
 import netifaces as ni
+
+# Adapted from https://stackoverflow.com/a/7257510
+class Worker(Thread):
+    """Thread executing tasks from a given tasks queue"""
+    def __init__(self, tasks, retVal = None):
+        Thread.__init__(self)
+        self.tasks = tasks
+        self.daemon = True
+        self.start()
+
+    def run(self):
+        while True:
+            func, args, kargs = self.tasks.get()
+            try:
+                spd = func(*args, **kargs)
+                self.retVal = spd
+            except Exception:
+                print("exception silenced")
+            finally:
+                self.tasks.task_done()
+
+class ThreadPool:
+    """Pool of threads consuming tasks from a queue"""
+    def __init__(self, num_threads):
+        self.tasks = Queue(num_threads)
+        self.workers = []
+        for _ in range(num_threads):
+            self.workers.append(Worker(self.tasks))
+            # print(f'workers has {len(self.workers)} length')
+
+    def add_task(self, func, *args, **kargs):
+        """Add a task to the queue"""
+        self.tasks.put((func, args, kargs))
+
+    def wait_completion(self):
+        """Wait for completion of all the tasks in the queue"""
+        self.tasks.join()
+        
+    def wait_completion_and_return_sum(self) -> float: 
+        sum = 0
+        
+        start = time.time()
+        self.wait_completion()
+        # print(f'took {time.time() - start} seconds.')
+        for worker in self.workers:
+            sum += worker.retVal
+            prefix, normalizedSpeed = get_prefix(worker.retVal)
+        
+        return sum
 
 PORT = 5201        # Port to listen on (non-privileged ports are > 1023)
 
@@ -63,12 +113,12 @@ def start_server(host, port, buffer_length, connections) -> int:
     s.listen()
     
     if connections > 1:
-        pool = ThreadPool(processes=connections)
+        pool = ThreadPool(connections)
         speeds = []
         for _ in range(connections):
-            speeds.append(pool.apply_async(server_loop, (s, buffer_length)))
-        speed = sum(map(lambda s: s.get(), speeds))
-        pool.close()
+            pool.add_task(server_loop, s, buffer_length)
+        speed = pool.wait_completion_and_return_sum()
+        pool.wait_completion()
     else:
         speed = server_loop(s, buffer_length)
     prefix, normalizedSpeed = get_prefix(speed)
@@ -82,11 +132,10 @@ def start_client(host, port, buffer_length, duration, connections) -> int:
         return childpid
     ip = ipaddress.ip_address(host)
     if connections > 1:
-        pool = ThreadPool(processes=connections)
-        speeds = []
+        pool = ThreadPool(connections)
         for i in range(connections):
-            pool.apply_async(create_client_socket, (ip, port, buffer_length, duration)).get()
-            # speeds.append(pool.apply_async(client_loop, (s, host, port+i, buffer_length, duration)))   
+            pool.add_task(create_client_socket, ip, port, buffer_length, duration)
+        pool.wait_completion()
     else:
         if isinstance(ip, ipaddress.IPv4Address):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -104,10 +153,6 @@ def start_client(host, port, buffer_length, duration, connections) -> int:
     sys.exit(1)
 
 def server_loop(sock: socket.socket, buffer_length) -> float:
-    # print(f'Opening server on {host}:{port}')
-    # print(sock)
-    # sock.bind((host, port))
-    # sock.listen()
     conn, _ = sock.accept()
     received = 0
     firstReceive = True
@@ -121,10 +166,7 @@ def server_loop(sock: socket.socket, buffer_length) -> float:
                 end = time.time()
                 break
             length = len(data)
-            #print(f'{length1} {length}')
-            #if length < buffer_length:
-            #    print(f'len of data < buffer length: {length}')
-            received += length#buffer_length
+            received += length
     return received / (end-start)
     
 def client_loop(sock: socket.socket, host, port, buffer_length, duration): 
@@ -184,13 +226,12 @@ def main(argv) -> None:
             port = arg
         elif opt in ("-c", "--connections"):
             connections = int(arg)
+            print(f'benchmarking with {connections} connections, this might take a while...')
         elif opt in ("-t", "--time"):
             duration = int(arg)
-            print(f'got duration of {duration}')
             
         elif opt in ("-l", "--length"):
             length = int(arg)
-            print(f'got length of {length}')
         elif opt in ("-u", "--udp"):
             udp = True
             length = 1460
