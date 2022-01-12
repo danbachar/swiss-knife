@@ -2,9 +2,8 @@
 
 import socket
 import os
-import subprocess
 import sys
-import time
+import time as timeModule
 import getopt
 import ipaddress
 from queue import Queue
@@ -14,7 +13,7 @@ import netifaces as ni
 # Adapted from https://stackoverflow.com/a/7257510
 class Worker(Thread):
     """Thread executing tasks from a given tasks queue"""
-    def __init__(self, tasks, retVal = None):
+    def __init__(self, tasks, retVal = 0):
         Thread.__init__(self)
         self.tasks = tasks
         self.daemon = True
@@ -24,10 +23,9 @@ class Worker(Thread):
         while True:
             func, args, kargs = self.tasks.get()
             try:
-                spd = func(*args, **kargs)
-                self.retVal = spd
-            except Exception:
-                print("exception silenced")
+                self.retVal = func(*args, **kargs)
+            except Exception as e:
+                print("exception silenced", e)
             finally:
                 self.tasks.task_done()
 
@@ -50,13 +48,10 @@ class ThreadPool:
         
     def wait_completion_and_return_sum(self) -> float: 
         sum = 0
-        
-        start = time.time()
         self.wait_completion()
-        # print(f'took {time.time() - start} seconds.')
+        
         for worker in self.workers:
-            sum += worker.retVal
-            prefix, normalizedSpeed = get_prefix(worker.retVal)
+            sum += worker.retVal[0]
         
         return sum
 
@@ -81,52 +76,53 @@ def get_prefix(speed):
         prefix = 'holybits/s'
     return prefix, speed
 
-def create_client_socket(ip, port, buffer_length, duration) -> float:
+def create_client_socket_and_connect(reverse, udp, ip, port, buffer_length, duration) -> float:
+    s = create_socket(udp, ip, buffer_length)
+    client_loop(reverse, udp, s, ip, port, buffer_length, duration)
+    
+def create_socket(udp, ip, buffer_length) -> socket.socket:
+    stream = ''
+    if udp:
+        stream = socket.SOCK_DGRAM
+    else: stream= socket.SOCK_STREAM
     if isinstance(ip, ipaddress.IPv4Address):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s = socket.socket(socket.AF_INET, stream)
     elif isinstance(ip, ipaddress.IPv6Address):
-        s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-        
+        s = socket.socket(socket.AF_INET6, stream)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
     s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
-    
-    client_loop(s, ip, port, buffer_length, duration)
+    s.settimeout(1.0)
+    return s
 
-def start_server(host, port, buffer_length, connections) -> int:
+def start_server(reverse, udp, host, port, buffer_length, connections, duration) -> int:
     childpid = os.fork()
     if childpid != 0:
         return childpid
     ip = ipaddress.ip_address(host)
     
-    global pool
-    global speed
-    
-    if isinstance(ip, ipaddress.IPv4Address):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    elif isinstance(ip, ipaddress.IPv6Address):
-        s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
+    s = create_socket(udp, ip, buffer_length)
     s.bind((str(ip), port))
-    s.listen()
+    if not udp:
+        s.listen()
     
+    speed = 0
     if connections > 1:
         pool = ThreadPool(connections)
-        speeds = []
         for _ in range(connections):
-            pool.add_task(server_loop, s, buffer_length)
-        speed = pool.wait_completion_and_return_sum()
-        pool.wait_completion()
+            pool.add_task(server_loop, reverse, udp, s, buffer_length, duration)
+        begin = timeModule.time()
+        bits = pool.wait_completion_and_return_sum()
+        duration = timeModule.time() - begin
+        speed = bits/duration
     else:
-        speed = server_loop(s, buffer_length)
+        (bits,time) = server_loop(reverse, udp, s, buffer_length, duration)
+        speed = (bits/time)
     prefix, normalizedSpeed = get_prefix(speed)
     print(f'Speed achieved is {normalizedSpeed} {prefix}')
     sys.exit(1)
     
-
-def start_client(host, port, buffer_length, duration, connections) -> int:
+def start_client(reverse, udp, host, port, buffer_length, duration, connections) -> int:
     childpid = os.fork()
     if childpid != 0:
         return childpid
@@ -134,76 +130,73 @@ def start_client(host, port, buffer_length, duration, connections) -> int:
     if connections > 1:
         pool = ThreadPool(connections)
         for i in range(connections):
-            pool.add_task(create_client_socket, ip, port, buffer_length, duration)
+            pool.add_task(create_client_socket_and_connect, reverse, udp, ip, port, buffer_length, duration)
         pool.wait_completion()
     else:
-        if isinstance(ip, ipaddress.IPv4Address):
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
-                client_loop(s, host, port, buffer_length, duration)
-                
-        elif isinstance(ip, ipaddress.IPv6Address):
-            with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
-                client_loop(s, host, port, buffer_length, duration)
+        s = create_socket(udp, ip, buffer_length)
+        client_loop(reverse, udp, s, host, port, buffer_length, duration)
     sys.exit(1)
 
-def server_loop(sock: socket.socket, buffer_length) -> float:
-    conn, _ = sock.accept()
+def server_loop(reverse, udp, sock: socket.socket, buffer_length, duration):
+    if not udp:
+        conn, _ = sock.accept()
+    buffer = [1] * (buffer_length+1)
+    b = bytes(buffer)
     received = 0
     firstReceive = True
-    with conn:
-        while True:
-            data = conn.recv(buffer_length)
-            if firstReceive:
-                firstReceive = False
-                start = time.time()
+    # with conn:
+    while True:
+        if not reverse:
+            if not udp:
+                data = conn.recv(buffer_length)
+                if firstReceive:
+                    firstReceive = False
+                    start = timeModule.time()
+            else: data, _ = sock.recvfrom(buffer_length)
             if not data:
-                end = time.time()
-                break
+                end = timeModule.time()
+                break;
             length = len(data)
             received += length
-    return received / (end-start)
+        else:
+            end_time = timeModule.time() + duration
+            while timeModule.time() < end_time:
+            # reverse mode, TCP is assumed because UDP doesn't work
+                length = conn.send(b)
+                if firstReceive:
+                    firstReceive = False
+                    start = timeModule.time()
+                received += length
+            end = timeModule.time()
+            conn.close()
+            break
+    return (received,end-start)
     
-def client_loop(sock: socket.socket, host, port, buffer_length, duration): 
+def client_loop(reverse, udp, sock: socket.socket, host, port, buffer_length, duration): 
     buffer = [1] * buffer_length
     b = bytes(buffer)
-    sock.connect((str(host), port))
-    end_time = time.time() + duration
-    while time.time() < end_time:
-        sock.send(b)
-    sock.close()
-        
-def open_port(port) -> None:
-    # using fuser to remove blocking process from using determinated ports    
-    portWithTcp = f'{str(port)}/tcp'
-    process = subprocess.Popen(['fuser', '-k', portWithTcp],
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                universal_newlines=True)
-    while True:
-            output = process.stdout.readline()
-            stripped = output.strip()
-            if not stripped.isspace():
-                print(stripped)
-            # Do something else
-            return_code = process.poll()
-            if return_code is not None:
-                # Process has finished, read rest of the output
-                for output in process.stdout.readlines():
-                    stripped = output.strip()
-                    if not stripped.isspace():
-                        print(stripped)
+    if not udp:
+        sock.connect((str(host), port))
+    end_time = timeModule.time() + duration
+    if not reverse:
+        while timeModule.time() < end_time:
+            if not udp:
+                sock.send(b)
+            else: sock.sendto(b, (host, port))
+    else: 
+        while True:
+            if not udp:
+                data = sock.recv(buffer_length)
+            else: data, _ = sock.recvfrom(buffer_length)
+            if not data:
                 break
-
+    if not udp and not reverse:
+        sock.close()
+        
 def main(argv) -> None:
     try:
-        opts, args = getopt.getopt(argv, "p:f:d:c:t:l:u",
-                                   ["port=" "plot_filename=" "data_filename=" "connections=" "time=" "length=" "udp"])
+        opts, args = getopt.getopt(argv, "p:f:d:c:t:l:uR",
+                                   ["port=" "plot_filename=" "data_filename=" "connections=" "time=" "length=" "udp", "reverse"])
     except getopt.GetoptError:
         print("Syntax Error.")
         sys.exit(2)
@@ -211,8 +204,6 @@ def main(argv) -> None:
     addrs = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET]) # IPv6 doesn't work yet
     addrsv6 = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET6]) # IPv6 doesn't work yet
     ip = list(filter(lambda ip: "swissknife0" in ip, list(addrs)+list(addrsv6))).pop()
-    #ip = list(addrs).pop()
-    #ip = '169.254.68.39'
     global port
     global plot_filename
     global data_filename
@@ -221,6 +212,7 @@ def main(argv) -> None:
     duration = 10
     length=128
     udp = False
+    reverse = False
     for opt, arg in opts:
         if opt in ("-p", "--port"):
             port = arg
@@ -235,14 +227,13 @@ def main(argv) -> None:
         elif opt in ("-u", "--udp"):
             udp = True
             length = 1460
-            
-    print(f'ip: {ip}:{port}')
+        elif opt in ("-R", "--reverse"):
+            reverse = True
     
     port = int(port)
-    open_port(port)
-    #ip = 'fe80::e63d:1aff:fe72:f0'
-    serverpid = start_server(ip, port, length, connections)
-    clientpid = start_client(ip, port, length, duration, connections)
+
+    serverpid = start_server(reverse, udp, ip, port, length, connections, duration)
+    clientpid = start_client(reverse, udp, ip, port, length, duration, connections)
 
     try:
         os.waitpid(serverpid, 0)
