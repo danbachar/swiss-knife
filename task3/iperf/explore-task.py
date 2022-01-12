@@ -76,11 +76,11 @@ def get_prefix(speed):
         prefix = 'holybits/s'
     return prefix, speed
 
-def create_client_socket_and_connect(reverse, udp, ip, port, buffer_length, duration) -> float:
-    s = create_socket(udp, ip, buffer_length)
+def create_client_socket_and_connect(reverse, udp, ip, port, buffer_length, duration, mss) -> float:
+    s = create_socket(udp, ip, buffer_length, mss)
     client_loop(reverse, udp, s, ip, port, buffer_length, duration)
     
-def create_socket(udp, ip, buffer_length) -> socket.socket:
+def create_socket(udp, ip, buffer_length, mss) -> socket.socket:
     stream = ''
     if udp:
         stream = socket.SOCK_DGRAM
@@ -93,15 +93,18 @@ def create_socket(udp, ip, buffer_length) -> socket.socket:
     s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
     s.settimeout(1.0)
+    
+    if mss:
+        s.setsockopt(socket.SOL_SOCKET, socket.TCP_MAXSEG, mss)
     return s
 
-def start_server(reverse, udp, host, port, buffer_length, connections, duration) -> int:
+def start_server(reverse, udp, host, port, buffer_length, connections, duration, mss) -> int:
     childpid = os.fork()
     if childpid != 0:
         return childpid
     ip = ipaddress.ip_address(host)
     
-    s = create_socket(udp, ip, buffer_length)
+    s = create_socket(udp, ip, buffer_length, mss)
     s.bind((str(ip), port))
     if not udp:
         s.listen()
@@ -119,21 +122,22 @@ def start_server(reverse, udp, host, port, buffer_length, connections, duration)
         (bits,time) = server_loop(reverse, udp, s, buffer_length, duration)
         speed = (bits/time)
     prefix, normalizedSpeed = get_prefix(speed)
+
     print(f'Speed achieved is {normalizedSpeed} {prefix}')
     sys.exit(1)
     
-def start_client(reverse, udp, host, port, buffer_length, duration, connections) -> int:
+def start_client(reverse, udp, host, port, buffer_length, duration, connections, mss) -> int:
     childpid = os.fork()
     if childpid != 0:
         return childpid
     ip = ipaddress.ip_address(host)
     if connections > 1:
         pool = ThreadPool(connections)
-        for i in range(connections):
-            pool.add_task(create_client_socket_and_connect, reverse, udp, ip, port, buffer_length, duration)
+        for _ in range(connections):
+            pool.add_task(create_client_socket_and_connect, reverse, udp, ip, port, buffer_length, duration, mss)
         pool.wait_completion()
     else:
-        s = create_socket(udp, ip, buffer_length)
+        s = create_socket(udp, ip, buffer_length, mss)
         client_loop(reverse, udp, s, host, port, buffer_length, duration)
     sys.exit(1)
 
@@ -144,7 +148,6 @@ def server_loop(reverse, udp, sock: socket.socket, buffer_length, duration):
     b = bytes(buffer)
     received = 0
     firstReceive = True
-    # with conn:
     while True:
         if not reverse:
             if not udp:
@@ -195,8 +198,8 @@ def client_loop(reverse, udp, sock: socket.socket, host, port, buffer_length, du
         
 def main(argv) -> None:
     try:
-        opts, args = getopt.getopt(argv, "p:f:d:c:t:l:uR",
-                                   ["port=" "plot_filename=" "data_filename=" "connections=" "time=" "length=" "udp", "reverse"])
+        opts, _ = getopt.getopt(argv, "p:f:d:c:t:l:uRM:",
+                                   ["port=" "plot_filename=" "data_filename=" "connections=" "time=" "length=" "udp", "reverse" "set-mss"])
     except getopt.GetoptError:
         print("Syntax Error.")
         sys.exit(2)
@@ -213,6 +216,7 @@ def main(argv) -> None:
     length=128
     udp = False
     reverse = False
+    mss = 0
     for opt, arg in opts:
         if opt in ("-p", "--port"):
             port = arg
@@ -221,7 +225,6 @@ def main(argv) -> None:
             print(f'benchmarking with {connections} connections, this might take a while...')
         elif opt in ("-t", "--time"):
             duration = int(arg)
-            
         elif opt in ("-l", "--length"):
             length = int(arg)
         elif opt in ("-u", "--udp"):
@@ -229,11 +232,13 @@ def main(argv) -> None:
             length = 1460
         elif opt in ("-R", "--reverse"):
             reverse = True
+        elif opt in ("-M", "--set-mss"):
+            mss = int(arg)        
     
     port = int(port)
 
-    serverpid = start_server(reverse, udp, ip, port, length, connections, duration)
-    clientpid = start_client(reverse, udp, ip, port, length, duration, connections)
+    serverpid = start_server(reverse, udp, ip, port, length, connections, duration, mss)
+    clientpid = start_client(reverse, udp, ip, port, length, duration, connections, mss)
 
     try:
         os.waitpid(serverpid, 0)
