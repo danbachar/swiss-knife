@@ -10,8 +10,89 @@ from queue import Queue
 from threading import Thread
 import netifaces as ni
 import json as jsonModule
+import ctypes
 
-# Adapted from https://stackoverflow.com/a/7257510
+# Adapted from https://github.com/ModioAB/snippets/blob/master/src/tcp_info.py
+class TcpInfo(ctypes.Structure):
+    """TCP_INFO struct in linux 4.2
+    see /usr/include/linux/tcp.h for details"""
+
+    __u8 = ctypes.c_uint8
+    __u32 = ctypes.c_uint32
+    __u64 = ctypes.c_uint64
+
+    _fields_ = [
+        ("tcpi_state", __u8),
+        ("tcpi_ca_state", __u8),
+        ("tcpi_retransmits", __u8),
+        ("tcpi_probes", __u8),
+        ("tcpi_backoff", __u8),
+        ("tcpi_options", __u8),
+        ("tcpi_snd_wscale", __u8, 4), ("tcpi_rcv_wscale", __u8, 4),
+
+        ("tcpi_rto", __u32),
+        ("tcpi_ato", __u32),
+        ("tcpi_snd_mss", __u32),
+        ("tcpi_rcv_mss", __u32),
+
+        ("tcpi_unacked", __u32),
+        ("tcpi_sacked", __u32),
+        ("tcpi_lost", __u32),
+        ("tcpi_retrans", __u32),
+        ("tcpi_fackets", __u32),
+
+        # Times
+        ("tcpi_last_data_sent", __u32),
+        ("tcpi_last_ack_sent", __u32),
+        ("tcpi_last_data_recv", __u32),
+        ("tcpi_last_ack_recv", __u32),
+        # Metrics
+        ("tcpi_pmtu", __u32),
+        ("tcpi_rcv_ssthresh", __u32),
+        ("tcpi_rtt", __u32),
+        ("tcpi_rttvar", __u32),
+        ("tcpi_snd_ssthresh", __u32),
+        ("tcpi_snd_cwnd", __u32),
+        ("tcpi_advmss", __u32),
+        ("tcpi_reordering", __u32),
+
+        ("tcpi_rcv_rtt", __u32),
+        ("tcpi_rcv_space", __u32),
+
+        ("tcpi_total_retrans", __u32),
+
+        ("tcpi_pacing_rate", __u64),
+        ("tcpi_max_pacing_rate", __u64),
+
+        # RFC4898 tcpEStatsAppHCThruOctetsAcked
+        ("tcpi_bytes_acked", __u64),
+        # RFC4898 tcpEStatsAppHCThruOctetsReceived
+        ("tcpi_bytes_received", __u64),
+        # RFC4898 tcpEStatsPerfSegsOut
+        ("tcpi_segs_out", __u32),
+        # RFC4898 tcpEStatsPerfSegsIn
+        ("tcpi_segs_in", __u32),
+    ]
+    del __u8, __u32, __u64
+
+    def __repr__(self):
+        keyval = ["{}={!r}".format(x[0], getattr(self, x[0]))
+                  for x in self._fields_]
+        fields = ", ".join(keyval)
+        return "{}({})".format(self.__class__.__name__, fields)
+
+    @classmethod
+    def from_socket(cls, sock):
+        """Takes a socket, and attempts to get TCP_INFO stats on it. Returns a
+        TcpInfo struct"""
+        # http://linuxgazette.net/136/pfeiffer.html
+        padsize = ctypes.sizeof(TcpInfo)
+        data = sock.getsockopt(socket.SOL_TCP, socket.TCP_INFO, padsize)
+        # On older kernels, we get fewer bytes, pad with null to fit
+        padded = data.ljust(padsize, b'\0')
+        return cls.from_buffer_copy(padded)
+
+# Adapted Worker+ThreadPool from https://stackoverflow.com/a/7257510
 class Worker(Thread):
     """Thread executing tasks from a given tasks queue"""
     def __init__(self, tasks, retVal = 0, packetsSent = 0):
@@ -52,18 +133,13 @@ class ThreadPool:
         packets = 0
         self.wait_completion()
         
+        retrans = 0
         for worker in self.workers:
             sum += worker.retVal[0]
             packets += worker.retVal[2]
+            retrans = max(retrans, worker.retVal[3])
         
-        return (sum, packets)
-
-class Measurement:
-    def __init__(self, download, upload, loss, jitter):
-        self.download = download
-        self.upload = upload
-        self.loss = loss
-        self.jitter = jitter
+        return (sum, packets, retrans)
     
 PORT = 5201        # Port to listen on (non-privileged ports are > 1023)
 
@@ -87,11 +163,14 @@ def get_prefix(speed):
         prefix = 'holybits/s'
     return prefix, spd
 
-def create_client_socket_and_connect(reverse, udp, ip, port, buffer_length, duration, mss, zerocopy):
-    s = create_socket(udp, ip, buffer_length, mss)
+def getTCPInfo(s):
+    return TcpInfo.from_socket(s)
+        
+def create_client_socket_and_connect(reverse, udp, ip, port, buffer_length, duration, mss, zerocopy, window_size):
+    s = create_socket(udp, ip, buffer_length, mss, window_size)
     return client_loop(reverse, udp, s, ip, port, buffer_length, duration, zerocopy)
     
-def create_socket(udp, ip, buffer_length, mss) -> socket.socket:
+def create_socket(udp, ip, buffer_length, mss, window_size) -> socket.socket:
     stream = ''
     if udp:
         stream = socket.SOCK_DGRAM
@@ -107,15 +186,19 @@ def create_socket(udp, ip, buffer_length, mss) -> socket.socket:
     
     if mss:
         s.setsockopt(socket.SOL_SOCKET, socket.TCP_MAXSEG, mss)
+    if window_size:
+        s.setsockopt(socket.SOL_SOCKET, socket.TCP_WINDOW_CLAMP, window_size)
+
+        
     return s
 
-def start_server(reverse, udp, host, port, buffer_length, connections, duration, mss, zerocopy):
+def start_server(reverse, udp, host, port, buffer_length, connections, duration, mss, zerocopy, window_size):
     childpid = os.fork()
     if childpid != 0:
         return childpid
     ip = ipaddress.ip_address(host)
     
-    s = create_socket(udp, ip, buffer_length, mss)
+    s = create_socket(udp, ip, buffer_length, mss, window_size)
     s.bind((str(ip), port))
     if not udp:
         s.listen()
@@ -126,19 +209,20 @@ def start_server(reverse, udp, host, port, buffer_length, connections, duration,
         for _ in range(connections):
             pool.add_task(server_loop, reverse, udp, s, buffer_length, duration, zerocopy)
         begin = timeModule.time()
-        (bits, packets) = pool.wait_completion_and_return_sum_and_packets()
+        (bits, packets, retrans) = pool.wait_completion_and_return_sum_and_packets()
         duration = timeModule.time() - begin
     else:
-        (bits,duration,packets) = server_loop(reverse, udp, s, buffer_length, duration, zerocopy)
+        (bits,duration,packets,retrans) = server_loop(reverse, udp, s, buffer_length, duration, zerocopy)
     speed = (bits/duration)
     speed *= 8 # everything is bytes
     
     with open('server-res.txt', 'w') as resfile:
-        resfile.write(f'{speed},{packets}')
+        resfile.write(f'{speed},{packets},{retrans}')
         resfile.flush()
+    
     sys.exit(1)
     
-def start_client(reverse, udp, host, port, buffer_length, duration, connections, mss, zerocopy) -> int:
+def start_client(reverse, udp, host, port, buffer_length, duration, connections, mss, zerocopy, window_size) -> int:
     childpid = os.fork()
     if childpid != 0:
         return childpid
@@ -147,16 +231,17 @@ def start_client(reverse, udp, host, port, buffer_length, duration, connections,
     if connections > 1:
         pool = ThreadPool(connections)
         for _ in range(connections):
-            pool.add_task(create_client_socket_and_connect, reverse, udp, ip, port, buffer_length, duration, mss, zerocopy)
+            pool.add_task(create_client_socket_and_connect, reverse, udp, ip, port, buffer_length, duration, mss, zerocopy, window_size)
         begin = timeModule.time()
-        (bits, packets) = pool.wait_completion_and_return_sum_and_packets()
+        (bits, packets, retrans) = pool.wait_completion_and_return_sum_and_packets()
         duration = timeModule.time() - begin
     else:
-        s = create_socket(udp, ip, buffer_length, mss)
-        (bits, duration, packets) = client_loop(reverse, udp, s, host, port, buffer_length, duration, zerocopy)
+        s = create_socket(udp, ip, buffer_length, mss, window_size)
+        (bits, duration, packets, retrans) = client_loop(reverse, udp, s, host, port, buffer_length, duration, zerocopy)
     with open('client-res.txt', 'w') as resfile:
-        resfile.write(f'{bits*8},{duration},{packets}')
+        resfile.write(f'{bits*8},{duration},{packets},{retrans}')
         resfile.flush()
+        
     sys.exit(1)
 
 def server_loop(reverse, udp, sock: socket.socket, buffer_length, duration, zerocopy):
@@ -208,8 +293,8 @@ def server_loop(reverse, udp, sock: socket.socket, buffer_length, duration, zero
     if zerocopy and reverse:
         zerocopyFile.close()
     if not reverse:
-        return (received,end-start,packets_received)
-    return (sent,end-start,packets_sent)
+        return (received,end-start,packets_received,getTCPInfo(conn).tcpi_total_retrans)
+    return (sent,end-start,packets_sent,getTCPInfo(conn).tcpi_total_retrans)
     
 def client_loop(reverse, udp, sock: socket.socket, host, port, buffer_length, duration, zerocopy): 
     buffer = [1] * buffer_length
@@ -255,19 +340,19 @@ def client_loop(reverse, udp, sock: socket.socket, host, port, buffer_length, du
                 break
             packets_received += 1
             received += len(data)
-            
+    retrans = getTCPInfo(sock).tcpi_total_retrans
     if not udp and not reverse:
         sock.close()
     if zerocopy and not reverse:
         zerocopyFile.close()
     if not reverse:
-        return (sent,end-start,packets_sent)
-    return (received,end-start,packets_received)
+        return (sent,end-start,packets_sent, retrans)
+    return (received,end-start,packets_received, retrans)
         
 def main(argv) -> None:
     try:
-        opts, args = getopt.getopt(argv, "p:f:d:c:t:l:uRM:ZJo:",
-                                   ["port=" "plot_filename=" "data_filename=" "connections=" "time=" "length=" "udp", "reverse" "set-mss=" "zerocopy" "json" "log-file="])
+        opts, args = getopt.getopt(argv, "p:f:d:c:t:l:uRM:ZJo:w:",
+                                   ["port=" "plot_filename=" "data_filename=" "connections=" "time=" "length=" "udp", "reverse" "set-mss=" "zerocopy" "json" "log-file=" "window-size="])
     except getopt.GetoptError:
         print("Syntax Error.")
         sys.exit(2)
@@ -288,6 +373,7 @@ def main(argv) -> None:
     zerocopy = False
     json = False
     log_file = False
+    ws = 0
     for opt, arg in opts:
         if opt in ("-p", "--port"):
             port = arg
@@ -310,11 +396,13 @@ def main(argv) -> None:
             json = True
         elif opt in ('-o', '--log-file'):
             log_file = arg
+        elif opt in ('-w', '--window-size'):
+            ws = int(arg)
         
     port = int(port)
 
-    serverpid = start_server(reverse, udp, ip, port, length, connections, duration, mss, zerocopy)
-    clientpid = start_client(reverse, udp, ip, port, length, duration, connections, mss, zerocopy)
+    serverpid = start_server(reverse, udp, ip, port, length, connections, duration, mss, zerocopy, ws)
+    clientpid = start_client(reverse, udp, ip, port, length, duration, connections, mss, zerocopy, ws)
 
     try:
         os.waitpid(serverpid, 0)
@@ -325,20 +413,22 @@ def main(argv) -> None:
         with open('server-res.txt', 'r') as server_res:
             client_line = client_res.read()
             server_line = server_res.read()
-            client_bits,client_duration,client_packets = client_line.split(',')
-            server_speed,server_packets = server_line.split(',')
+            client_bits,client_duration,client_packets,client_retrans = client_line.split(',')
+            server_speed,server_packets,server_retrans = server_line.split(',')
             loss = abs(int(server_packets)-int(client_packets)) / int(client_packets)
             
-            download_prefix,download = get_prefix(float(server_speed))
-            upload_prefix,upload = get_prefix(float(client_bits)/float(client_duration))
+            server_prefix,server = get_prefix(float(server_speed))
+            client_prefix,client = get_prefix(float(client_bits)/float(client_duration))
             
             if not json:
-                str = f'Download speed achieved is {download} {download_prefix}, upload speed is {upload} {upload_prefix}, packet loss is {loss}'
+                str = f'Server speed achieved is {server} {server_prefix}, client speed is {client} {client_prefix}, packet loss is {loss}, total TCP server packet retransmissions is {server_retrans}, client packet retransmissions is {client_retrans}'
             else:
                 res = {
-                    'download': f'{download} {download_prefix}',
-                    'upload': f'{upload} {upload_prefix}',
-                    'packet_loss': loss
+                    'server': f'{server} {server_prefix}',
+                    'client': f'{client} {client_prefix}',
+                    'packet_loss': loss,
+                    'server_tcp_total_retransmissions': server_retrans,
+                    'client_tcp_total_retransmissions': client_retrans,
                 }
                 
                 str = jsonModule.dumps(res)
