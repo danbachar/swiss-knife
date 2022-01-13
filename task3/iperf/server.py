@@ -121,7 +121,7 @@ def increase_window_size_limit():
 
 def test_window_size(url, data_filename, plot_filename, port, connections, duration):
     increase_window_size_limit()
-    window_sizes = [ 64, 128, 256, 1024, 2048, 4096 ]
+    window_sizes = [ 64, 128, 256, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
     remove_file(data_filename)
     remove_file(data_filename+'_udp.csv')
     with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i, open(data_filename+'_parallel.csv', 'a') as p:
@@ -143,6 +143,7 @@ def test_window_size(url, data_filename, plot_filename, port, connections, durat
             measurement=benchmark(url, port, connections, duration, ws, True, 0, False, False, False)
             measurement_udp=benchmark(url, port, connections, duration, ws, False, 0, False, False, False)
             measurement_parallel=benchmark(url, port, connections, duration, ws, True, 0, False, False, False)
+            
             
             print('TCP achieved speed: ', measurement.normalizedSpeed, measurement.prefix, 'window size:', ws, 'duration:', duration)
             print('UDP achieved speed: ', measurement_udp.normalizedSpeed, measurement_udp.prefix, 'window size:', ws, 'duration:', duration)
@@ -181,7 +182,7 @@ def test_window_size(url, data_filename, plot_filename, port, connections, durat
             plt.savefig('./plots/' + plot_filename+'_loss.png')        
 
 def test_payload_size(url, data_filename, plot_filename, port, connections, duration):
-    payload_sizes = [ 0.5 * 128, 128, 128 * 1.5, 2 * 128, 2.5 * 128, 3 * 128, 0.5 * 1460, 1460, 1.5 * 1460, 2 * 1460, 2.5 * 1460,  3 * 1460]
+    payload_sizes = [ 0.5 * 128, 128, 128 * 1.5, 2 * 128, 2.5 * 128, 3 * 128, 0.5 * 1460, 1460, 1.5 * 1460, 2 * 1460, 2.5 * 1460,  3 * 1460, 10 * 1460, 20 * 1460]
     remove_file(data_filename)
     remove_file(data_filename+'_udp.csv')
     with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i, open(data_filename+'_parallel.csv', 'a') as p:

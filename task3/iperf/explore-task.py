@@ -11,6 +11,9 @@ from threading import Thread
 import netifaces as ni
 import json as jsonModule
 import ctypes
+import pandas as pd
+import matplotlib.pyplot as plt
+from server import CONNECTIONS, SPEED, TYPE, remove_file
 
 # Adapted from https://github.com/ModioAB/snippets/blob/master/src/tcp_info.py
 class TcpInfo(ctypes.Structure):
@@ -146,11 +149,22 @@ class ThreadPool:
                 avg_jitter += worker.retVal[4]
         
         return (sum, packets, retrans, avg_jitter/cnt)
+
+class Measurement:
+    def __init__(self, server_speed, client_speed, packet_loss, server_retrans, client_retrans, jitter):
+        self.server_speed = server_speed
+        self.client_speed = client_speed
+        self.packet_loss = packet_loss
+        self.server_retrans = server_retrans
+        self.client_retrans = client_retrans
+        self.jitter = jitter
+
+
     
 PORT = 5201        # Port to listen on (non-privileged ports are > 1023)
 
 def get_prefix(speed):
-    spd = speed
+    spd = float(speed)
     orderOfMagnitude = 0
     while spd > 1000:
         orderOfMagnitude += 3
@@ -184,7 +198,7 @@ def create_socket(ip, buffer_length, mss, window_size) -> socket.socket:
     s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes('swissknife0'.encode()))
     s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_length)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_length)
-    
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
     if mss:
         s.setsockopt(socket.SOL_SOCKET, socket.TCP_MAXSEG, mss)
     if window_size:
@@ -350,11 +364,32 @@ def client_loop(reverse, sock: socket.socket, host, port, buffer_length, duratio
             zerocopyFile.close()
         return (sent,end-start,packets_sent, retrans, sum(jitters)/len(jitters))
     return (received,end-start,packets_received, retrans, 0)
+
+def benchmark(reverse, ip, port, length, connections, duration, mss, zerocopy, ws):
+    serverpid = start_server(reverse, ip, port, length, connections, duration, mss, zerocopy, ws)
+    clientpid = start_client(reverse, ip, port, length, duration, connections, mss, zerocopy, ws)
+
+    try:
+        os.waitpid(serverpid, 0)
+        os.waitpid(clientpid, 0)
+    except ChildProcessError:
+        print()
+    with open('client-res.txt', 'r') as client_res:
+        with open('server-res.txt', 'r') as server_res:
+            client_line = client_res.read()
+            server_line = server_res.read()
+            client_bits,client_duration,client_packets,client_retrans,client_jitter = client_line.split(',')
+            server_speed,server_packets,server_retrans,server_jitter = server_line.split(',')
+            loss = abs(int(server_packets)-int(client_packets)) / int(client_packets)
+            client_speed = float(client_bits)/float(client_duration)
+            
+            jitter = max(server_jitter, client_jitter) # one of them has to be 0, other has value, dependant on reverse mode
+            return Measurement(server_speed, client_speed, loss, server_retrans, client_retrans, jitter)
         
 def main(argv) -> None:
     try:
-        opts, args = getopt.getopt(argv, "p:f:d:c:t:l:RM:ZJo:w:",
-                                   ["port=" "plot_filename=" "data_filename=" "connections=" "time=" "length=" "reverse" "set-mss=" "zerocopy" "json" "log-file=" "window-size="])
+        opts, args = getopt.getopt(argv, "p:f:d:c:t:l:RM:ZJo:w:x",
+                                   ["port=" "plot_filename=" "data_filename=" "connections=" "time=" "length=" "reverse" "set-mss=" "zerocopy" "json" "log-file=" "window-size=" "export"])
     except getopt.GetoptError:
         print("Syntax Error.")
         sys.exit(2)
@@ -375,6 +410,7 @@ def main(argv) -> None:
     json = False
     log_file = False
     ws = 0
+    export = False
     for opt, arg in opts:
         if opt in ("-p", "--port"):
             port = arg
@@ -396,50 +432,58 @@ def main(argv) -> None:
             log_file = arg
         elif opt in ('-w', '--window-size'):
             ws = int(arg)
+        elif opt in ('-x', '--export'):
+            export = True
         
     port = int(port)
+    if not export:
+        result = benchmark(reverse, ip, port, length, connections, duration, mss, zerocopy, ws)
+        server_prefix,server = get_prefix(result.server_speed)
+        client_prefix,client = get_prefix(result.client_speed)
+        if not json:
+                    str = f'Server speed achieved is {server} {server_prefix}, client speed is {client} {client_prefix}, packet loss is {result.packet_loss}, total TCP server packet retransmissions is {result.server_retrans}, client packet retransmissions is {result.client_retrans}, average jitter is {result.jitter} ms'
+        else:
+            res = {
+                'server': result.server_speed,
+                'client': result.client_speed,
+                'duration': duration,
+                'packet_loss': result.loss,
+                'server_tcp_total_retransmissions': result.server_retrans,
+                'client_tcp_total_retransmissions': result.client_retrans,
+                'jitter': result.jitter
+            }
+            
+            str = jsonModule.dumps(res)
+        
+        if not log_file:
+            print(str)
+        else:
+            with open(log_file, 'w') as outfile:
+                outfile.write(str)
+    else:
+        with open('explore-task-server.csv', 'w') as server_csv, open('explore-task-client.csv', 'w') as client_csv:
+            server_csv.write(f'{CONNECTIONS},{SPEED}\n')
+            server_csv.flush()
+            
+            client_csv.write(f'{CONNECTIONS},{SPEED}\n')
+            client_csv.flush()
+            
+            for conn in [1, 2, 3, 5, 10, 20, 50, 100]:
+                result = benchmark(False, ip, port, length, conn, duration, False, False, False)
+                
+                server_csv.write(f'{conn},{result.server_speed}\n')
+                server_csv.flush()
 
-    serverpid = start_server(reverse, ip, port, length, connections, duration, mss, zerocopy, ws)
-    clientpid = start_client(reverse, ip, port, length, duration, connections, mss, zerocopy, ws)
-
-    try:
-        os.waitpid(serverpid, 0)
-        os.waitpid(clientpid, 0)
-    except ChildProcessError:
-        print()
-    with open('client-res.txt', 'r') as client_res:
-        with open('server-res.txt', 'r') as server_res:
-            client_line = client_res.read()
-            server_line = server_res.read()
-            client_bits,client_duration,client_packets,client_retrans,client_jitter = client_line.split(',')
-            server_speed,server_packets,server_retrans,server_jitter = server_line.split(',')
-            loss = abs(int(server_packets)-int(client_packets)) / int(client_packets)
-            
-            server_prefix,server = get_prefix(float(server_speed))
-            client_prefix,client = get_prefix(float(client_bits)/float(client_duration))
-            
-            jitter = max(server_jitter, client_jitter) # one of them has to be 0, other has value, dependant on reverse mode
-            if not json:
-                str = f'Server speed achieved is {server} {server_prefix}, client speed is {client} {client_prefix}, packet loss is {loss}, total TCP server packet retransmissions is {server_retrans}, client packet retransmissions is {client_retrans}, average jitter is {jitter} ms'
-            else:
-                res = {
-                    'server': f'{server} {server_prefix}',
-                    'client': f'{client} {client_prefix}',
-                    'packet_loss': loss,
-                    'server_tcp_total_retransmissions': server_retrans,
-                    'client_tcp_total_retransmissions': client_retrans,
-                    'jitter': jitter
-                }
+                client_csv.write(f'{conn},{result.client_speed}\n')
+                client_csv.flush()
                 
-                str = jsonModule.dumps(res)
+            server_speed_data = pd.read_csv('explore-task-server.csv')
+            server_speed_graph = server_speed_data.plot(x=CONNECTIONS, y=SPEED, color='BLUE', label='SERVER')
+            server_speed_graph.set_ylabel('Speed: bits/s')
             
-            if not log_file:
-                print(str)
-            else:
-                with open(log_file, 'w') as outfile:
-                    outfile.write(str)
-                
-                
+            client_speed_data = pd.read_csv('explore-task-client.csv')
+            client_speed_data.plot(x=CONNECTIONS, y=SPEED, color='RED', label='CLIENT', ax=server_speed_graph)
+            plt.savefig('./plots/explore-task.png')
 
 if __name__ == "__main__":
     main(sys.argv[1:])
