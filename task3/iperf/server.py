@@ -5,7 +5,7 @@ import netifaces as ni
 import json
 import time
 import sys
-import numpy
+import numpy as np
 import os
 import getopt
 import matplotlib.pyplot as plt
@@ -23,6 +23,8 @@ LOSS = 'Packet loss'
 ZEROCOPY = 'Zerocopy'
 BIDIRECTIONAL = 'Bidirectional'
 REVERSE = 'Reverse'
+TYPE ='Type'
+PROPERTY ='Property'
 
 class Measurement:
     def __init__(self, speed, prefix, normalizedSpeed, jitter, loss):
@@ -33,10 +35,8 @@ class Measurement:
         self.loss = loss
         
 def remove_file(filename) -> None: 
-    print(f'Removing {filename}...')
     proc = subprocess.Popen(['rm', '-f', filename])
     proc.wait()
-    print(f'{filename} removed.')
     
 def get_prefix(speed): 
     orderOfMagnitude = 0
@@ -105,69 +105,48 @@ def get_measurement(res_file, udp, reverse) -> Measurement:
             if reverse:
                 bitsPerSecond = obj['end']['sum_sent']['bits_per_second']
                 seconds = obj['end']['sum_sent']['seconds']
-                
-            bitsPerSecond = obj['end']['sum_received']['bits_per_second']
-            seconds = obj['end']['sum_received']['seconds']
+            else:   
+                bitsPerSecond = obj['end']['sum_received']['bits_per_second']
+                seconds = obj['end']['sum_received']['seconds']
 
         prefix, normalizedSpeed = get_prefix(bitsPerSecond)
         return Measurement(bitsPerSecond, prefix, normalizedSpeed, jitter, loss)
     
+def increase_window_size_limit():
+    subprocess.Popen(['sudo', 'sysctl', '-w', 'net.core.rmem_max=67108864']) # allow testing with buffers up to 64MB 
+    subprocess.Popen(['sudo', 'sysctl', '-w', 'net.core.wmem_max=67108864']) # allow testing with buffers up to 64MB 
+    subprocess.Popen(['sudo', 'sysctl', '-w', 'net.ipv4.tcp_rmem="4096 87380 33554432"']) # increase Linux autotuning TCP buffer limit to 32MB
+    subprocess.Popen(['sudo', 'sysctl', '-w', 'net.ipv4.tcp_wmem="4096 65536 33554432"']) # increase Linux autotuning TCP buffer limit to 32MB
+    subprocess.Popen(['sudo', 'sysctl', '-w', 'net.ipv4.tcp_mtu_probing=1']) # recommended for hosts with jumbo frames enabled
+
 def test_window_size(url, data_filename, plot_filename, port, connections, duration):
-    window_sizes = [ 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096 ]
+    increase_window_size_limit()
+    window_sizes = [ 64, 128, 256, 1024, 2048, 4096 ]
     remove_file(data_filename)
     remove_file(data_filename+'_udp.csv')
-    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i, open(data_filename+'_zc.csv', 'a') as a, open(data_filename+'_zc_udp.csv', 'a') as b, open(data_filename+'_bidirectional.csv', 'a') as c, open(data_filename+'_bidirectional_udp.csv', 'a') as d, open(data_filename+'_reverse.csv', 'a') as e, open(data_filename+'_reverse_udp.csv', 'a') as z:
+    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i, open(data_filename+'_parallel.csv', 'a') as p:
         f.write(f'{WINDOW_SIZE},{SPEED}\n')
-        g.write(f'{WINDOW_SIZE},{SPEED}\n')
-        a.write(f'{WINDOW_SIZE},{SPEED}\n')
-        b.write(f'{WINDOW_SIZE},{SPEED}\n')
-        c.write(f'{WINDOW_SIZE},{SPEED}\n')
-        d.write(f'{WINDOW_SIZE},{SPEED}\n')
-        e.write(f'{WINDOW_SIZE},{SPEED}\n')
-        z.write(f'{WINDOW_SIZE},{SPEED}\n')
-        h.write(f'{WINDOW_SIZE},{JITTER}\n')
-        i.write(f'{WINDOW_SIZE},{LOSS}\n')
-        a.flush()
-        b.flush()
-        c.flush()
-        d.flush()
-        e.flush()
-        z.flush()
         f.flush()
+
+        g.write(f'{WINDOW_SIZE},{SPEED}\n')
         g.flush()
+
+        h.write(f'{WINDOW_SIZE},{JITTER}\n')
         h.flush()
+
+        i.write(f'{WINDOW_SIZE},{LOSS}\n')
         i.flush()
+        
+        p.write(f'{CONNECTIONS},{WINDOW_SIZE},{SPEED}\n')
+        p.flush()
         for ws in window_sizes:
             measurement=benchmark(url, port, connections, duration, ws, True, 0, False, False, False)
             measurement_udp=benchmark(url, port, connections, duration, ws, False, 0, False, False, False)
-            measurement_zc_tcp=benchmark(url, port, connections, duration, ws, True, 0, True, False, False)
-            measurement_zc_udp=benchmark(url, port, connections, duration, ws, False, 0, True, False, False)
-            measurement_bidirectional_tcp=benchmark(url, port, connections, duration, ws, True, 0, False, True, False)
-            measurement_bidirectional_udp=benchmark(url, port, connections, duration, ws, False, 0, False, True, False)
-            measurement_reverse_tcp=benchmark(url, port, connections, duration, ws, True, 0, False, False, True)
-            measurement_reverse_udp=benchmark(url, port, connections, duration, ws, False, 0, False, False, True)
+            measurement_parallel=benchmark(url, port, connections, duration, ws, True, 0, False, False, False)
             print('TCP achieved speed: ', measurement.normalizedSpeed, measurement.prefix, 'window size:', ws, 'duration:', duration)
             print('UDP achieved speed: ', measurement_udp.normalizedSpeed, measurement_udp.prefix, 'window size:', ws, 'duration:', duration)
             f.write(f'{ws},{measurement.speed}\n')
             f.flush()
-            
-            a.write(f'{ws},{measurement_zc_tcp.speed}\n')
-            a.flush()
-            
-            b.write(f'{ws},{measurement_zc_udp.speed}\n')
-            b.flush()
-            
-            c.write(f'{ws},{measurement_bidirectional_tcp.speed}\n')
-            c.flush()
-            
-            d.write(f'{ws},{measurement_bidirectional_udp.speed}\n')
-            d.flush()
-            
-            e.write(f'{ws},{measurement_reverse_tcp.speed}\n')
-            e.flush()
-            
-            z.write(f'{ws},{measurement_reverse_udp.speed}\n')
-            z.flush()
             
             df = pd.read_csv(data_filename)
             tcp_graph = df.plot(x=WINDOW_SIZE, y=SPEED, color='BLUE', label='TCP')
@@ -178,23 +157,10 @@ def test_window_size(url, data_filename, plot_filename, port, connections, durat
             dg = pd.read_csv(data_filename+'_udp.csv')
             udp_graph = dg.plot(x=WINDOW_SIZE, y=SPEED, color='RED', label='UDP', ax=tcp_graph)
             
-            da = pd.read_csv(data_filename+'_zc.csv')
-            zc_tcp_ws = da.plot(x=WINDOW_SIZE, y=SPEED, color='GREEN', label='TCP Zerocopy', ax=udp_graph)
-            
-            db = pd.read_csv(data_filename+'_zc_udp.csv')
-            zc_udp_ws = db.plot(x=WINDOW_SIZE, y=SPEED, color='YELLOW', label='UDP Zerocopy', ax=zc_tcp_ws)
-            
-            dc = pd.read_csv(data_filename+'_bidirectional.csv')
-            bidirectional_tcp_ws = dc.plot(x=WINDOW_SIZE, y=SPEED, color='RED', label='TCP Bidirectional', ax=zc_udp_ws)
-            
-            dd = pd.read_csv(data_filename+'_bidirectional_udp.csv')
-            bidirectional_udp_ws = dd.plot(x=WINDOW_SIZE, y=SPEED, color='ORANGE', label='UDP Bidirectional', ax=bidirectional_tcp_ws)
-            
-            de = pd.read_csv(data_filename+'_reverse.csv')
-            reverse_tcp_ws = de.plot(x=WINDOW_SIZE, y=SPEED, color='PINK', label='TCP Reversed', ax=bidirectional_udp_ws)
-            
-            dz = pd.read_csv(data_filename+'_reverse_udp.csv')
-            reverse_udp_ws = dz.plot(x=WINDOW_SIZE, y=SPEED, color='CYAN', label='UDP Reversed', ax=reverse_tcp_ws)
+            p.write(f'{connections},{ws},{measurement_parallel.speed}\n')
+            p.flush()
+            dp = pd.read_csv(data_filename+'_parallel.csv')
+            dp.plot(x=WINDOW_SIZE, y=SPEED, color='RED', label=f'{connections} connections', ax=udp_graph)
             
             plt.savefig('./plots/' + plot_filename+'.png')
             
@@ -217,59 +183,29 @@ def test_payload_size(url, data_filename, plot_filename, port, connections, dura
     payload_sizes = [ 0.5 * 128, 128, 128 * 1.5, 2 * 128, 2.5 * 128, 3 * 128, 0.5 * 1460, 1460, 1.5 * 1460, 2 * 1460, 2.5 * 1460,  3 * 1460]
     remove_file(data_filename)
     remove_file(data_filename+'_udp.csv')
-    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i, open(data_filename+'_zc.csv', 'a') as a, open(data_filename+'_zc_udp.csv', 'a') as b, open(data_filename+'_bidirectional.csv', 'a') as c, open(data_filename+'_bidirectional_udp.csv', 'a') as d, open(data_filename+'_reverse.csv', 'a') as e, open(data_filename+'_reverse_udp.csv', 'a') as z:
+    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i, open(data_filename+'_parallel.csv', 'a') as p:
         f.write(f'{PAYLOAD_SIZE},{SPEED}\n')
-        g.write(f'{PAYLOAD_SIZE},{SPEED}\n')
-        a.write(f'{PAYLOAD_SIZE},{SPEED}\n')
-        b.write(f'{PAYLOAD_SIZE},{SPEED}\n')
-        c.write(f'{PAYLOAD_SIZE},{SPEED}\n')
-        d.write(f'{PAYLOAD_SIZE},{SPEED}\n')
-        e.write(f'{PAYLOAD_SIZE},{SPEED}\n')
-        z.write(f'{PAYLOAD_SIZE},{SPEED}\n')
-        h.write(f'{PAYLOAD_SIZE},{JITTER}\n')
-        i.write(f'{PAYLOAD_SIZE},{LOSS}\n')
-        a.flush()
-        b.flush()
-        c.flush()
-        d.flush()
-        e.flush()
-        z.flush()
         f.flush()
+
+        g.write(f'{PAYLOAD_SIZE},{SPEED}\n')
         g.flush()
+        h.write(f'{PAYLOAD_SIZE},{JITTER}\n')
         h.flush()
+
+        i.write(f'{PAYLOAD_SIZE},{LOSS}\n')
         i.flush()
+        
+        p.write(f'{CONNECTIONS},{PAYLOAD_SIZE},{SPEED}\n')
+        p.flush()
         for ps in payload_sizes:
             measurement=benchmark(url, port, connections, duration, 0, True, ps, False, False, False)
             measurement_udp=benchmark(url, port, connections, duration, 0, False, ps, False, False, False)
-            measurement_udp=benchmark(url, port, connections, duration, 0, False, ps, False, False, False)
-            measurement_zc_tcp=benchmark(url, port, connections, duration, 0, True, ps, True, False, False)
-            measurement_zc_udp=benchmark(url, port, connections, duration, 0, False, ps, True, False, False)
-            measurement_bidirectional_tcp=benchmark(url, port, connections, duration, 0, True, ps, False, True, False)
-            measurement_bidirectional_udp=benchmark(url, port, connections, duration, 0, False, ps, False, True, False)
-            measurement_reverse_tcp=benchmark(url, port, connections, duration, 0, True, ps, False, False, True)
-            measurement_reverse_udp=benchmark(url, port, connections, duration, 0, False, ps, False, False, True)
+            measurement_parallel=benchmark(url, port, connections, duration, 0, True, ps, False, False, False)
+            
             print('TCP achieved speed: ', measurement.normalizedSpeed, measurement.prefix, 'payload size:', ps, 'duration:', duration)
             print('UDP achieved speed: ', measurement_udp.normalizedSpeed, measurement_udp.prefix, 'payload size:', ps, 'duration:', duration)
             f.write(f'{ps},{measurement.speed}\n')
             f.flush()
-            
-            a.write(f'{ps},{measurement_zc_tcp.speed}\n')
-            a.flush()
-            
-            b.write(f'{ps},{measurement_zc_udp.speed}\n')
-            b.flush()
-            
-            c.write(f'{ps},{measurement_bidirectional_tcp.speed}\n')
-            c.flush()
-            
-            d.write(f'{ps},{measurement_bidirectional_udp.speed}\n')
-            d.flush()
-            
-            e.write(f'{ps},{measurement_reverse_tcp.speed}\n')
-            e.flush()
-            
-            z.write(f'{ps},{measurement_reverse_udp.speed}\n')
-            z.flush()
             
             df = pd.read_csv(data_filename)
             tcp_graph = df.plot(x=PAYLOAD_SIZE, y=SPEED, color='BLUE', label='TCP')
@@ -280,23 +216,10 @@ def test_payload_size(url, data_filename, plot_filename, port, connections, dura
             dg = pd.read_csv(data_filename+'_udp.csv')
             udp_graph = dg.plot(x=PAYLOAD_SIZE, y=SPEED, color='RED', label='UDP', ax=tcp_graph)
             
-            da = pd.read_csv(data_filename+'_zc.csv')
-            zc_tcp_ps = da.plot(x=PAYLOAD_SIZE, y=SPEED, color='GREEN', label='TCP Zerocopy', ax=udp_graph)
-            
-            db = pd.read_csv(data_filename+'_zc_udp.csv')
-            zc_udp_ps = db.plot(x=PAYLOAD_SIZE, y=SPEED, color='YELLOW', label='UDP Zerocopy', ax=zc_tcp_ps)
-            
-            dc = pd.read_csv(data_filename+'_bidirectional.csv')
-            bidirectional_tcp_ps = dc.plot(x=PAYLOAD_SIZE, y=SPEED, color='RED', label='TCP Bidirectional', ax=zc_udp_ps)
-            
-            dd = pd.read_csv(data_filename+'_bidirectional_udp.csv')
-            bidirectional_udp_ps = dd.plot(x=PAYLOAD_SIZE, y=SPEED, color='ORANGE', label='UDP Bidirectional', ax=bidirectional_tcp_ps)
-            
-            de = pd.read_csv(data_filename+'_reverse.csv')
-            reverse_tcp_ps = de.plot(x=PAYLOAD_SIZE, y=SPEED, color='PINK', label='TCP Reversed', ax=bidirectional_udp_ps)
-            
-            dz = pd.read_csv(data_filename+'_reverse_udp.csv')
-            reverse_udp_ps = dz.plot(x=PAYLOAD_SIZE, y=SPEED, color='CYAN', label='UDP Reversed', ax=reverse_tcp_ps)
+            p.write(f'{connections},{ps},{measurement_parallel.speed}\n')
+            p.flush()
+            dp = pd.read_csv(data_filename+'_parallel.csv')
+            dp.plot(x=PAYLOAD_SIZE, y=SPEED, color='RED', label=f'{connections} connections', ax=udp_graph)
             
             plt.savefig('./plots/' + plot_filename+'.png')
             
@@ -315,64 +238,11 @@ def test_payload_size(url, data_filename, plot_filename, port, connections, dura
         
             plt.savefig('./plots/' + plot_filename+'_loss.png')
             
-def test_zerocopy(url, data_filename, plot_filename, port, connections, duration):
-    zerocopy = [ False, True ]
-    remove_file(data_filename)
-    remove_file(data_filename+'_udp.csv')
-    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i:
-        f.write(f'{ZEROCOPY},{SPEED}\n')
-        f.flush()
-        
-        g.write(f'{ZEROCOPY},{SPEED}\n')
-        g.flush()
-        
-        h.flush()
-        h.write(f'{ZEROCOPY},{JITTER}\n')
-
-        i.flush()
-        i.write(f'{ZEROCOPY},{LOSS}\n')
-        for zc in zerocopy:
-            measurement=benchmark(url, port, connections, duration, 0, True, 0, zc, False, False)
-            measurement_udp=benchmark(url, port, connections, duration, 0, False, 0, zc, False, False)
-                
-            print('TCP achieved speed: ', measurement.normalizedSpeed, measurement.prefix, 'zerocopy:', zc, 'duration:', duration)
-            print('UDP achieved speed: ', measurement_udp.normalizedSpeed, measurement_udp.prefix, 'zerocopy:', zc, 'duration:', duration)
-            f.write(f'{zc},{measurement.speed}\n')
-            f.flush()
-            df = pd.read_csv(data_filename)
-            tcp_graph = df.plot(x=ZEROCOPY, y=SPEED, color='BLUE', label='TCP')
-            tcp_graph.set_ylabel("Speed: bits/second")
-            
-            g.write(f'{zc},{measurement_udp.speed}\n')
-            g.flush()
-            dg = pd.read_csv(data_filename+'_udp.csv')
-            dg.plot(x=ZEROCOPY, y=SPEED, color='RED', label='UDP', ax=tcp_graph)
-            plt.savefig('./plots/' + plot_filename+'.png')
-            
-            h.write(f'{zc},{measurement_udp.jitter}\n')
-            h.flush()
-            dh = pd.read_csv(data_filename+'_jitter.csv')
-            jitter_graph = dh.plot(x=ZEROCOPY, y=JITTER)
-            jitter_graph.set_ylabel("Jitter: ms")
-            plt.savefig('./plots/' + plot_filename+'_jitter.png')
-            
-            i.write(f'{zc},{measurement_udp.loss}\n')
-            i.flush()
-            di = pd.read_csv(data_filename+'_loss.csv')
-            loss_graph = di.plot(x=ZEROCOPY, y=LOSS)
-            loss_graph.set_ylabel("Packet loss")
-        
-            plt.savefig('./plots/' + plot_filename+'_loss.png')
-            
 def test_parallel(url, data_filename, plot_filename, port, connections, duration):
     remove_file(data_filename)
-    remove_file(data_filename+'_udp.csv')
-    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i:
-        f.write(f'{CONNECTIONS},{SPEED}\n')
+    with open(data_filename, 'a') as f, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i:
+        f.write(f'{CONNECTIONS},{SPEED},{TYPE}\n')
         f.flush()
-        
-        g.write(f'{CONNECTIONS},{SPEED}\n')
-        g.flush()
         
         h.flush()
         h.write(f'{CONNECTIONS},{JITTER}\n')
@@ -385,130 +255,72 @@ def test_parallel(url, data_filename, plot_filename, port, connections, duration
                 
             print('TCP achieved speed: ', measurement.normalizedSpeed, measurement.prefix, 'parllel connections:', numConnections, 'duration:', duration)
             print('UDP achieved speed: ', measurement_udp.normalizedSpeed, measurement_udp.prefix, 'parllel connections:', numConnections, 'duration:', duration)
-            f.write(f'{numConnections},{measurement.speed}\n')
+            f.write(f'{numConnections},{measurement.speed},TCP\n')
+            f.write(f'{numConnections},{measurement_udp.speed},UDP\n')
             f.flush()
-            df = pd.read_csv(data_filename)
-            tcp_graph = df.plot(x=CONNECTIONS, y=SPEED, color='BLUE', label='TCP')
-            tcp_graph.set_ylabel("Speed: bits/second")
-            
-            g.write(f'{numConnections},{measurement_udp.speed}\n')
-            g.flush()
-            dg = pd.read_csv(data_filename+'_udp.csv')
-            dg.plot(x=CONNECTIONS, y=SPEED, color='RED', label='UDP', ax=tcp_graph)
-            plt.savefig('./plots/' + plot_filename+'.png')
             
             h.write(f'{numConnections},{measurement_udp.jitter}\n')
             h.flush()
-            dh = pd.read_csv(data_filename+'_jitter.csv')
-            jitter_graph = dh.plot(x=CONNECTIONS, y=JITTER)
-            jitter_graph.set_ylabel("Jitter: ms")
-            plt.savefig('./plots/' + plot_filename+'_jitter.png')
             
             i.write(f'{numConnections},{measurement_udp.loss}\n')
             i.flush()
-            di = pd.read_csv(data_filename+'_loss.csv')
-            loss_graph = di.plot(x=CONNECTIONS, y=LOSS)
-            loss_graph.set_ylabel("Packet loss")
-        
-            plt.savefig('./plots/' + plot_filename+'_loss.png')
+        plot_effect_of_prop_on_speed(data_filename, plot_filename, CONNECTIONS)
+               
+def plot_effect_of_prop_on_speed(data_filename, plot_filename, indexCol):
+    labels = ['True', 'False']
+    x = np.arange(len(labels))
     
-def test_bidirectional(url, data_filename, plot_filename, port, connections, duration):
-    bidirectional = [ False, True ]
-    remove_file(data_filename)
-    remove_file(data_filename+'_udp.csv')
-    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i:
-        f.write(f'{BIDIRECTIONAL},{SPEED}\n')
-        f.flush()
+    fig, ax = plt.subplots()
+    
+    speed_data = pd.read_csv(data_filename)
+    speed_data.pivot(index=indexCol, columns=TYPE, values=SPEED).plot(kind='bar') 
+    plt.savefig('./plots/' + plot_filename+'.png')
+    
+    jitter_data = pd.read_csv(data_filename+'_jitter.csv')
+    jitter_data.pivot(index=indexCol, columns=TYPE, values=JITTER).plot(kind='bar') 
+    plt.savefig('./plots/' + plot_filename+'_jitter.png')
+    
+    loss_data = pd.read_csv(data_filename+'_loss.csv')
+    loss_data.pivot(index=indexCol, columns=TYPE, values=LOSS).plot(kind='bar') 
+    plt.savefig('./plots/' + plot_filename+'_loss.png')
         
-        g.write(f'{BIDIRECTIONAL},{SPEED}\n')
-        g.flush()
-        
-        h.flush()
-        h.write(f'{BIDIRECTIONAL},{JITTER}\n')
-
-        i.flush()
-        i.write(f'{BIDIRECTIONAL},{LOSS}\n')
-        for switch in bidirectional:
-            measurement=benchmark(url, port, connections, duration, 0, True, 0, False, switch, False)
-            measurement_udp=benchmark(url, port, connections, duration, 0, False, 0, False, switch, False)
-                
-            print('TCP achieved speed: ', measurement.normalizedSpeed, measurement.prefix, 'bidirectional:', switch, 'duration:', duration)
-            print('UDP achieved speed: ', measurement_udp.normalizedSpeed, measurement_udp.prefix, 'bidirectional:', switch, 'duration:', duration)
-            f.write(f'{switch},{measurement.speed}\n')
-            f.flush()
-            df = pd.read_csv(data_filename)
-            tcp_graph = df.plot(x=BIDIRECTIONAL, y=SPEED, color='BLUE', label='TCP')
-            tcp_graph.set_ylabel("Speed: bits/second")
-            
-            g.write(f'{switch},{measurement_udp.speed}\n')
-            g.flush()
-            dg = pd.read_csv(data_filename+'_udp.csv')
-            dg.plot(x=BIDIRECTIONAL, y=SPEED, color='RED', label='UDP', ax=tcp_graph)
-            plt.savefig('./plots/' + plot_filename+'.png')
-            
-            h.write(f'{switch},{measurement_udp.jitter}\n')
-            h.flush()
-            dh = pd.read_csv(data_filename+'_jitter.csv')
-            jitter_graph = dh.plot(x=BIDIRECTIONAL, y=JITTER)
-            jitter_graph.set_ylabel("Jitter: ms")
-            plt.savefig('./plots/' + plot_filename+'_jitter.png')
-            
-            i.write(f'{switch},{measurement_udp.loss}\n')
-            i.flush()
-            di = pd.read_csv(data_filename+'_loss.csv')
-            loss_graph = di.plot(x=BIDIRECTIONAL, y=LOSS)
-            loss_graph.set_ylabel("Packet loss")
-        
-            plt.savefig('./plots/' + plot_filename+'_loss.png')
-
-def test_reverse(url, data_filename, plot_filename, port, connections, duration):
+def test_props(ip, data_filename, plot_filename, port, connections, duration):
     reverse = [ False, True ]
     remove_file(data_filename)
-    remove_file(data_filename+'_udp.csv')
-    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i:
-        f.write(f'{REVERSE},{SPEED}\n')
+    remove_file(data_filename+'_jitter.csv')
+    remove_file(data_filename+'_loss.csv')
+    with open(data_filename, 'a') as f, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i:
+        f.write(f'{PROPERTY},{SPEED},{TYPE}\n')
         f.flush()
         
-        g.write(f'{REVERSE},{SPEED}\n')
-        g.flush()
-        
         h.flush()
-        h.write(f'{REVERSE},{JITTER}\n')
-
-        i.flush()
-        i.write(f'{REVERSE},{LOSS}\n')
-        for switch in reverse:
-            measurement=benchmark(url, port, connections, duration, 0, True, 0, False, False, switch)
-            measurement_udp=benchmark(url, port, connections, duration, 0, False, 0, False, False, switch)
-                
-            print('TCP achieved speed: ', measurement.normalizedSpeed, measurement.prefix, 'reverse mode:', switch, 'duration:', duration)
-            print('UDP achieved speed: ', measurement_udp.normalizedSpeed, measurement_udp.prefix, 'reverse mode:', switch, 'duration:', duration)
-            f.write(f'{switch},{measurement.speed}\n')
-            f.flush()
-            df = pd.read_csv(data_filename)
-            tcp_graph = df.plot(x=REVERSE, y=SPEED, color='BLUE', label='TCP')
-            tcp_graph.set_ylabel("Speed: bits/second")
-            
-            g.write(f'{switch},{measurement_udp.speed}\n')
-            g.flush()
-            dg = pd.read_csv(data_filename+'_udp.csv')
-            dg.plot(x=REVERSE, y=SPEED, color='RED', label='UDP', ax=tcp_graph)
-            plt.savefig('./plots/' + plot_filename+'.png')
-            
-            h.write(f'{switch},{measurement_udp.jitter}\n')
-            h.flush()
-            dh = pd.read_csv(data_filename+'_jitter.csv')
-            jitter_graph = dh.plot(x=REVERSE, y=JITTER)
-            jitter_graph.set_ylabel("Jitter: ms")
-            plt.savefig('./plots/' + plot_filename+'_jitter.png')
-            
-            i.write(f'{switch},{measurement_udp.loss}\n')
-            i.flush()
-            di = pd.read_csv(data_filename+'_loss.csv')
-            loss_graph = di.plot(x=REVERSE, y=LOSS)
-            loss_graph.set_ylabel("Packet loss")
+        h.write(f'{PROPERTY},{JITTER},{TYPE}\n')
         
-            plt.savefig('./plots/' + plot_filename+'_loss.png')
+        i.flush()
+        i.write(f'{PROPERTY},{LOSS},{TYPE}\n')
+        for switch in reverse:
+            measurement_reverse=benchmark(ip, port, connections, duration, 0, True, 0, False, False, switch)
+            measurement_udp_reverse=benchmark(ip, port, connections, duration, 0, False, 0, False, False, switch)
+            measurement_bidirectional=benchmark(ip, port, connections, duration, 0, True, 0, False, switch, False)
+            measurement_udp_bidirectional=benchmark(ip, port, connections, duration, 0, False, 0, False, switch, False)
+            measurement_zerocopy=benchmark(ip, port, connections, duration, 0, True, 0, switch, False, False)
+            measurement_udp_zerocopy=benchmark(ip, port, connections, duration, 0, False, 0, switch, False, False)
+                
+            f.write(f'{switch},{measurement_reverse.speed},Reverse\n')
+            f.write(f'{switch},{measurement_bidirectional.speed},Bidirectional\n')
+            f.write(f'{switch},{measurement_zerocopy.speed},Zerocopy\n')
+            f.flush()
+            
+            h.write(f'{switch},{measurement_udp_reverse.jitter},Reverse\n')
+            h.write(f'{switch},{measurement_udp_bidirectional.jitter},Bidirectional\n')
+            h.write(f'{switch},{measurement_udp_zerocopy.jitter},Zerocopy\n')
+            h.flush()
+            
+            i.write(f'{switch},{measurement_udp_reverse.loss},Reverse\n')
+            i.write(f'{switch},{measurement_udp_bidirectional.loss},Bidirectional\n')
+            i.write(f'{switch},{measurement_udp_zerocopy.loss},Zerocopy\n')
+            i.flush()
+        plot_effect_of_prop_on_speed(data_filename, plot_filename, PROPERTY)
     
 def benchmark(url, port, connections, duration, window_size, tcp, payload_length, zerocopy, is_bidirectional, is_reverse) -> Measurement:
     remove_file('res.json')
@@ -521,7 +333,7 @@ def benchmark(url, port, connections, duration, window_size, tcp, payload_length
     
     measurement = Measurement(0, '', 0, 0, 0)
     if server_pid.wait() == 0:
-        measurement = get_measurement('res.json', not tcp)
+        measurement = get_measurement('res.json', not tcp, is_reverse or is_bidirectional)
     else:
         print("something bad happened to the server")
     return measurement
@@ -553,10 +365,8 @@ def main(argv) -> None:
 
     addrs = map(lambda ip: ip["addr"], ni.ifaddresses('swissknife0')[ni.AF_INET6])
     ip = list(filter(lambda ip: "swissknife0" in ip, addrs)).pop()
-    print("ip: ", ip)
-    global port
-    global plot_filename
-    global data_filename
+    plot_filename='plot_filename'
+    data_filename='./plots/data_filename'
     port = "5201"
     connections = 5
     duration = 1
@@ -576,15 +386,9 @@ def main(argv) -> None:
     open_port(port)
     test_window_size(ip, data_filename+'_ws.csv', plot_filename+'_ws', port, connections, duration)
     test_payload_size(ip, data_filename+'_ps.csv', plot_filename+'_ps', port, connections, duration)
-    test_zerocopy(ip, data_filename+'_zc.csv', plot_filename+'_zc', port, connections, duration)
-    test_parallel(ip, data_filename+'_parallel.csv', plot_filename+'_parallel', port, connections, duration)
-    test_bidirectional(ip, data_filename+'_bidirectional.csv', plot_filename+'_bidirectional', port, connections, duration)
-    test_reverse(ip, data_filename+'_reverse.csv', plot_filename+'_reverse', port, connections, duration)
+    test_props(ip, data_filename, plot_filename, port, connections, duration)
     os.makedirs('./plots', exist_ok=True)
     
-    print("++++++++++++++++++++++++++++++++++++++++++++++++")
-    print("fin")
-    print("++++++++++++++++++++++++++++++++++++++++++++++++")
 
 if __name__ == "__main__":
     main(sys.argv[1:])
