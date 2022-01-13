@@ -1,8 +1,8 @@
 apps,walltime
-hist-seq,3.574
-kmeans-seq,6.335
-lreg-seq,0.248
-matrix_mult_serial,10.002
-pca-seq,0.115
-string_match_serial,5.175
-wordcount_serial,7.705
+hist-seq,3.702
+kmeans-seq,6.576
+lreg-seq,0.284
+matrix_mult_serial,10.803
+pca-seq,0.133
+string_match_serial,5.302
+wordcount_serial,7.863

@@ -61,7 +61,7 @@ def plot(programs, mode):
     basefiles = []
     base_lists = []
 
-    pattern = 'result_t*_d1' if mode == "threads" else 'result_t8_d*'
+    pattern = 'result_t*_d2' if mode == "threads" else 'result_t8_d*'
 
     for f_name in os.listdir('./'):
         if fnmatch.fnmatch(f_name, pattern):
@@ -140,7 +140,7 @@ def main():
     for threads in [1,2,4,8]:
         os.environ["MR_NUMTHREADS"] = str(threads)
         print(f'Threads Num: {threads}')
-        benchmark(programs, threads, 1, False)  #fix dataset to the large one
+        benchmark(programs, threads, 2, False)  #fix dataset to the large one
 
     for dataset in range(3):
         benchmark(programs, 8, dataset, False)  #fix threads to 8

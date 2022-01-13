@@ -3,6 +3,6 @@ histogram,0.061
 kmeans,0.048
 linear_regression,0.009
 matrix_multiply,0.067
-pca,0.016
+pca,0.015
 string_match,0.005
 word_count,0.038
