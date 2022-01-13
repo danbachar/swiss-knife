@@ -143,6 +143,7 @@ def test_window_size(url, data_filename, plot_filename, port, connections, durat
             measurement=benchmark(url, port, connections, duration, ws, True, 0, False, False, False)
             measurement_udp=benchmark(url, port, connections, duration, ws, False, 0, False, False, False)
             measurement_parallel=benchmark(url, port, connections, duration, ws, True, 0, False, False, False)
+            
             print('TCP achieved speed: ', measurement.normalizedSpeed, measurement.prefix, 'window size:', ws, 'duration:', duration)
             print('UDP achieved speed: ', measurement_udp.normalizedSpeed, measurement_udp.prefix, 'window size:', ws, 'duration:', duration)
             f.write(f'{ws},{measurement.speed}\n')
@@ -160,7 +161,7 @@ def test_window_size(url, data_filename, plot_filename, port, connections, durat
             p.write(f'{connections},{ws},{measurement_parallel.speed}\n')
             p.flush()
             dp = pd.read_csv(data_filename+'_parallel.csv')
-            dp.plot(x=WINDOW_SIZE, y=SPEED, color='RED', label=f'{connections} connections', ax=udp_graph)
+            dp.plot(x=WINDOW_SIZE, y=SPEED, color='GREEN', label=f'{connections} connections', ax=udp_graph)
             
             plt.savefig('./plots/' + plot_filename+'.png')
             
@@ -245,10 +246,10 @@ def test_parallel(url, data_filename, plot_filename, port, connections, duration
         f.flush()
         
         h.flush()
-        h.write(f'{CONNECTIONS},{JITTER}\n')
+        h.write(f'{CONNECTIONS},{JITTER},{TYPE}\n')
 
         i.flush()
-        i.write(f'{CONNECTIONS},{LOSS}\n')
+        i.write(f'{CONNECTIONS},{LOSS},{TYPE}\n')
         for numConnections in range(1, connections+1):
             measurement=benchmark(url, port, numConnections, duration, 0, True, 0, False, False, False)
             measurement_udp=benchmark(url, port, numConnections, duration, 0, False, 0, False, False, False)
@@ -259,10 +260,10 @@ def test_parallel(url, data_filename, plot_filename, port, connections, duration
             f.write(f'{numConnections},{measurement_udp.speed},UDP\n')
             f.flush()
             
-            h.write(f'{numConnections},{measurement_udp.jitter}\n')
+            h.write(f'{numConnections},{measurement_udp.jitter},UDP\n')
             h.flush()
             
-            i.write(f'{numConnections},{measurement_udp.loss}\n')
+            i.write(f'{numConnections},{measurement_udp.loss},UDP\n')
             i.flush()
         plot_effect_of_prop_on_speed(data_filename, plot_filename, CONNECTIONS)
                
@@ -332,10 +333,11 @@ def benchmark(url, port, connections, duration, window_size, tcp, payload_length
     client_pid = start_client(url, port, connections, duration, window_size, not tcp, payload_length, zerocopy, is_bidirectional, is_reverse)        
     
     measurement = Measurement(0, '', 0, 0, 0)
-    if server_pid.wait() == 0:
+    ret = server_pid.wait()
+    if ret == 0 or ret == 1:
         measurement = get_measurement('res.json', not tcp, is_reverse or is_bidirectional)
     else:
-        print("something bad happened to the server")
+        print("something bad happened to the server, ret:", ret)
     return measurement
         
 def open_port(port) -> None:
@@ -378,15 +380,14 @@ def main(argv) -> None:
         elif opt in ("-d", "--filename_data"):
             data_filename = './plots/' + arg
         elif opt in ("-c", "--connections"):
-            print("connections is ", opt, arg)
             connections = int(arg)
         elif opt in ("-t", "--time"):
-            print("time is ", opt, arg)
             duration = int(arg)
     open_port(port)
     test_window_size(ip, data_filename+'_ws.csv', plot_filename+'_ws', port, connections, duration)
     test_payload_size(ip, data_filename+'_ps.csv', plot_filename+'_ps', port, connections, duration)
     test_props(ip, data_filename, plot_filename, port, connections, duration)
+    test_parallel(ip, data_filename+'_parallel.csv', plot_filename+'_parallel', port, connections, duration)
     os.makedirs('./plots', exist_ok=True)
     
 
