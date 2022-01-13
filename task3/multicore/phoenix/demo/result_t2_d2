@@ -1,0 +1,8 @@
+apps,walltime
+histogram,2.659
+kmeans,3.009
+linear_regression,0.172
+matrix_multiply,6.546
+pca,0.195
+string_match,0.036
+word_count,0.575
