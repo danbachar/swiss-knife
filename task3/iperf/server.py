@@ -121,10 +121,8 @@ def increase_window_size_limit():
 
 def test_window_size(url, data_filename, plot_filename, port, connections, duration):
     increase_window_size_limit()
-    window_sizes = [ 64, 128, 256, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
-    remove_file(data_filename)
-    remove_file(data_filename+'_udp.csv')
-    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i, open(data_filename+'_parallel.csv', 'a') as p:
+    window_sizes = [ 64, 128, 256, 512, 1024, 2048, 4096, 8192, 8192*2, 8192*4, 8192*8 ]
+    with open(data_filename, 'w') as f, open(data_filename+'_udp.csv', 'w') as g, open(data_filename+'_jitter.csv', 'w') as h, open(data_filename+'_loss.csv', 'w') as i, open(data_filename+'_parallel.csv', 'w') as p:
         f.write(f'{WINDOW_SIZE},{SPEED}\n')
         f.flush()
 
@@ -185,7 +183,7 @@ def test_payload_size(url, data_filename, plot_filename, port, connections, dura
     payload_sizes = [ 0.5 * 128, 128, 128 * 1.5, 2 * 128, 2.5 * 128, 3 * 128, 0.5 * 1460, 1460, 1.5 * 1460, 2 * 1460, 2.5 * 1460,  3 * 1460, 10 * 1460, 20 * 1460]
     remove_file(data_filename)
     remove_file(data_filename+'_udp.csv')
-    with open(data_filename, 'a') as f, open(data_filename+'_udp.csv', 'a') as g, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i, open(data_filename+'_parallel.csv', 'a') as p:
+    with open(data_filename, 'w') as f, open(data_filename+'_udp.csv', 'w') as g, open(data_filename+'_jitter.csv', 'w') as h, open(data_filename+'_loss.csv', 'w') as i, open(data_filename+'_parallel.csv', 'w') as p:
         f.write(f'{PAYLOAD_SIZE},{SPEED}\n')
         f.flush()
 
@@ -221,7 +219,7 @@ def test_payload_size(url, data_filename, plot_filename, port, connections, dura
             p.write(f'{connections},{ps},{measurement_parallel.speed}\n')
             p.flush()
             dp = pd.read_csv(data_filename+'_parallel.csv')
-            dp.plot(x=PAYLOAD_SIZE, y=SPEED, color='RED', label=f'{connections} connections', ax=udp_graph)
+            dp.plot(x=PAYLOAD_SIZE, y=SPEED, color='GREEN', label=f'{connections} connections', ax=udp_graph)
             
             plt.savefig('./plots/' + plot_filename+'.png')
             
@@ -242,9 +240,12 @@ def test_payload_size(url, data_filename, plot_filename, port, connections, dura
             
 def test_parallel(url, data_filename, plot_filename, port, connections, duration):
     remove_file(data_filename)
-    with open(data_filename, 'a') as f, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i:
-        f.write(f'{CONNECTIONS},{SPEED},{TYPE}\n')
+    with open(data_filename+'_tcp.csv', 'w') as f, open(data_filename+'_udp.csv', 'w') as g, open(data_filename+'_jitter.csv', 'w') as h, open(data_filename+'_loss.csv', 'w') as i:
+        f.write(f'{CONNECTIONS},{SPEED}\n')
         f.flush()
+        
+        g.write(f'{CONNECTIONS},{SPEED}\n')
+        g.flush()
         
         h.flush()
         h.write(f'{CONNECTIONS},{JITTER},{TYPE}\n')
@@ -257,16 +258,36 @@ def test_parallel(url, data_filename, plot_filename, port, connections, duration
                 
             print('TCP achieved speed: ', measurement.normalizedSpeed, measurement.prefix, 'parllel connections:', numConnections, 'duration:', duration)
             print('UDP achieved speed: ', measurement_udp.normalizedSpeed, measurement_udp.prefix, 'parllel connections:', numConnections, 'duration:', duration)
-            f.write(f'{numConnections},{measurement.speed},TCP\n')
-            f.write(f'{numConnections},{measurement_udp.speed},UDP\n')
+            f.write(f'{numConnections},{measurement.speed}\n')
             f.flush()
+
+            g.write(f'{numConnections},{measurement_udp.speed}\n')
+            g.flush()
             
             h.write(f'{numConnections},{measurement_udp.jitter},UDP\n')
             h.flush()
             
             i.write(f'{numConnections},{measurement_udp.loss},UDP\n')
             i.flush()
-        plot_effect_of_prop_on_speed(data_filename, plot_filename, CONNECTIONS)
+        tcp_data = pd.read_csv(data_filename+'_tcp.csv')
+        tcp_graph = tcp_data.plot(x=CONNECTIONS, y=SPEED, color='BLUE', label='TCP')
+        tcp_graph.set_ylabel("Speed: bits/second")
+        
+        udp_data = pd.read_csv(data_filename+'_udp.csv')
+        udp_graph = udp_data.plot(x=CONNECTIONS, y=SPEED, color='RED', label='UDP', ax = tcp_graph)
+        udp_graph.set_ylabel("Speed: bits/second")
+        plt.savefig('./plots/' + plot_filename+'.png')
+        
+        jitter_data = pd.read_csv(data_filename+'_jitter.csv')
+        jitter_graph = jitter_data.plot(x=CONNECTIONS, y=JITTER) 
+        jitter_graph.set_ylabel("Jitter: ms")
+        plt.savefig('./plots/' + plot_filename+'_jitter.png')
+
+        loss_data = pd.read_csv(data_filename+'_loss.csv')
+        loss_graph = loss_data.plot(x=CONNECTIONS, y=LOSS) 
+        loss_graph.set_ylabel("Packets lost in percentage")
+        plt.savefig('./plots/' + plot_filename+'_loss.png')
+        
                
 def plot_effect_of_prop_on_speed(data_filename, plot_filename, indexCol):
     labels = ['True', 'False']
@@ -291,7 +312,7 @@ def test_props(ip, data_filename, plot_filename, port, connections, duration):
     remove_file(data_filename)
     remove_file(data_filename+'_jitter.csv')
     remove_file(data_filename+'_loss.csv')
-    with open(data_filename, 'a') as f, open(data_filename+'_jitter.csv', 'a') as h, open(data_filename+'_loss.csv', 'a') as i:
+    with open(data_filename, 'w') as f, open(data_filename+'_jitter.csv', 'w') as h, open(data_filename+'_loss.csv', 'w') as i:
         f.write(f'{PROPERTY},{SPEED},{TYPE}\n')
         f.flush()
         
@@ -387,10 +408,9 @@ def main(argv) -> None:
     open_port(port)
     test_window_size(ip, data_filename+'_ws.csv', plot_filename+'_ws', port, connections, duration)
     test_payload_size(ip, data_filename+'_ps.csv', plot_filename+'_ps', port, connections, duration)
-    test_props(ip, data_filename, plot_filename, port, connections, duration)
+    test_props(ip, data_filename+'_props.csv', plot_filename+'_props', port, connections, duration)
     test_parallel(ip, data_filename+'_parallel.csv', plot_filename+'_parallel', port, connections, duration)
     os.makedirs('./plots', exist_ok=True)
-    
 
 if __name__ == "__main__":
     main(sys.argv[1:])
