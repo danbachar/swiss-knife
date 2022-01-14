@@ -26,3 +26,6 @@ for launching the process, simply run
 
 
 The wide possibilities of the exploration task has made this automation more complicated, thus we created only one plot, that considered the effect an increasing number of parallel connections has had on the measured performance.
+
+### Known bugs
+the `-M` option doesn't have any effect. This is a known bug and effect Iperf as well. https://github.com/esnet/iperf/issues/779
