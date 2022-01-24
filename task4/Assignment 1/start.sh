@@ -8,7 +8,7 @@ info() {
 info "Cloning template, please wait..."
 
 template_name=llvm-template
-git clone https://github.com/TUM-DSE/Swiss-Knife-LLVM-Assignments.git $llvm-template
+git clone https://github.com/TUM-DSE/Swiss-Knife-LLVM-Assignments.git $template_name
 
 cd $template_name && nix-shell
 
@@ -35,3 +35,6 @@ cp ../../llvm-modified-files/llvm/lib/Passes/PassBuilder.cpp llvm/lib/Passes/
 
 info "Building opt again, after having copied the DeadCodeElimination files..."
 cmake --build build –-target opt
+
+info "Testing..."
+./build/bin/opt -disable-output -passes=dead-code-elimination-pass ../FunctionWithDeadCode.ll
