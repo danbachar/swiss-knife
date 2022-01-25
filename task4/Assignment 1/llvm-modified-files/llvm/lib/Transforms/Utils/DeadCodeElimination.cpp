@@ -21,7 +21,6 @@ PreservedAnalyses DeadCodeEliminationPass::run(Function &F,
     // A working list to store instructions that should be removed
     SmallVector<Instruction *> worklist;
     for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-      unsigned instrOpcode = I->getOpcode();
       // Add trivially dead instructions to worklist
       if (isInstructionTriviallyDead(&*I)) {
         worklist.push_back(&*I);
@@ -53,6 +52,6 @@ PreservedAnalyses DeadCodeEliminationPass::run(Function &F,
       I->eraseFromParent();
     }
   }
-
+  errs() << "DeadCodeElimination pass is running\n";
   return PreservedAnalyses::all();
 }
