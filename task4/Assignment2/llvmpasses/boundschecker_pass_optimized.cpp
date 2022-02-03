@@ -246,7 +246,7 @@ namespace {
 } // endof namespace
 
             char BoundsCheckerModule::ID = 0;
-            static RegisterPass<BoundsCheckerModule> X("boundschecker", "Bounds Checker Pass", false, false);
+            static RegisterPass<BoundsCheckerModule> X("boundschecker_opt", "Bounds Checker Pass Optimised", false, false);
 
             static void registerPass(const PassManagerBuilder &,
                     legacy::PassManagerBase &PM) {

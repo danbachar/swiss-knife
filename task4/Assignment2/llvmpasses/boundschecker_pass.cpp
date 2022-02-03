@@ -148,7 +148,7 @@ namespace {
         Value* NewPtr = B.CreatePointerCast(Masked, Ptr->getType());
 
         /*  set the pointer operand with a return value of __runtime_checkbound (dummy tho) */
-        SI->setOperand(0, NewPtr);
+        SI->setOperand(1, NewPtr);
         
         return true;
     }
