@@ -13,6 +13,7 @@ git clone https://github.com/TUM-DSE/Swiss-Knife-LLVM-Assignments.git $template_
 info "Updating files"
 cp ../llvmpasses Assignment2 -r
 cp ../Makefile Assignment2
+cp ../main.c Assignment2/tests
 
 
 info "Testing"
